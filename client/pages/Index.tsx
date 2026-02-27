@@ -1,62 +1,211 @@
-import { DemoResponse } from "@shared/api";
-import { useEffect, useState } from "react";
+import { MapPin, Navigation, Compass, Phone, Search, Bell, Clock, Info, Shield, GraduationCap, Building2, Utensils, Landmark, CreditCard, Activity } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import Layout from "@/components/Layout";
+import { useState } from "react";
+import { cn } from "@/lib/utils";
 
 export default function Index() {
-  const [exampleFromServer, setExampleFromServer] = useState("");
-  // Fetch users on component mount
-  useEffect(() => {
-    fetchDemo();
-  }, []);
+  const [searchQuery, setSearchQuery] = useState("");
 
-  // Example of how to fetch data from the server (if needed)
-  const fetchDemo = async () => {
-    try {
-      const response = await fetch("/api/demo");
-      const data = (await response.json()) as DemoResponse;
-      setExampleFromServer(data.message);
-    } catch (error) {
-      console.error("Error fetching hello:", error);
-    }
-  };
+  const quickLinks = [
+    { label: "My Department", icon: GraduationCap, path: "/map?category=department", color: "bg-blue-500" },
+    { label: "Lecture Venue", icon: Building2, path: "/map?category=venue", color: "bg-purple-500" },
+    { label: "Nearest Food", icon: Utensils, path: "/map?category=food", color: "bg-orange-500" },
+    { label: "Bank/ATM", icon: CreditCard, path: "/map?category=bank", color: "bg-green-500" },
+    { label: "Health Center", icon: Activity, path: "/map?category=health", color: "bg-red-500" },
+    { label: "Senate/Admin", icon: Landmark, path: "/map?category=admin", color: "bg-indigo-500" },
+  ];
+
+  const categories = [
+    { id: "schools", label: "Schools (SEET, SAAT...)", count: 12 },
+    { id: "halls", label: "Lecture Halls", count: 45 },
+    { id: "hostels", label: "Hostels", count: 18 },
+    { id: "banks", label: "Banks & ATMs", count: 8 },
+  ];
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200">
-      <div className="text-center">
-        {/* TODO: FUSION_GENERATION_APP_PLACEHOLDER replace everything here with the actual app! */}
-        <h1 className="text-2xl font-semibold text-slate-800 flex items-center justify-center gap-3">
-          <svg
-            className="animate-spin h-8 w-8 text-slate-400"
-            viewBox="0 0 50 50"
-          >
-            <circle
-              className="opacity-30"
-              cx="25"
-              cy="25"
-              r="20"
-              stroke="currentColor"
-              strokeWidth="5"
-              fill="none"
-            />
-            <circle
-              className="text-slate-600"
-              cx="25"
-              cy="25"
-              r="20"
-              stroke="currentColor"
-              strokeWidth="5"
-              fill="none"
-              strokeDasharray="100"
-              strokeDashoffset="75"
-            />
+    <Layout>
+      {/* Hero Section */}
+      <section className="relative h-[600px] flex items-center justify-center overflow-hidden bg-gradient-to-br from-primary/95 to-primary text-primary-foreground p-6">
+        {/* Abstract Map Background Pattern */}
+        <div className="absolute inset-0 opacity-20 pointer-events-none">
+          <svg className="h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+            <path d="M0 20 L20 0 M20 40 L40 20 M40 60 L60 40 M60 80 L80 60 M80 100 L100 80" stroke="currentColor" strokeWidth="0.5" fill="none" />
+            <path d="M0 80 L20 100 M20 60 L40 80 M40 40 L60 60 M60 20 L80 40 M80 0 L100 20" stroke="currentColor" strokeWidth="0.5" fill="none" />
+            <circle cx="20" cy="20" r="2" fill="currentColor" />
+            <circle cx="80" cy="20" r="2" fill="currentColor" />
+            <circle cx="20" cy="80" r="2" fill="currentColor" />
+            <circle cx="80" cy="80" r="2" fill="currentColor" />
           </svg>
-          Generating your app...
-        </h1>
-        <p className="mt-4 text-slate-600 max-w-md">
-          Watch the chat on the left for updates that might need your attention
-          to finish generating
-        </p>
-        <p className="mt-4 hidden max-w-md">{exampleFromServer}</p>
-      </div>
-    </div>
+        </div>
+
+        <div className="relative z-10 max-w-4xl w-full text-center space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
+          <div className="space-y-4">
+            <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight">
+              FUTA Pathfinder
+            </h1>
+            <p className="text-xl md:text-2xl text-primary-foreground/80 max-w-2xl mx-auto">
+              Smart navigation through the hills and halls of the Federal University of Technology Akure.
+            </p>
+          </div>
+
+          <div className="max-w-2xl mx-auto relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <Input
+              placeholder="Search for departments, lecture halls, hostels..."
+              className="w-full h-14 pl-12 pr-4 rounded-full text-lg shadow-2xl text-foreground focus-visible:ring-secondary"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+
+          <div className="flex flex-wrap items-center justify-center gap-4 pt-4">
+            <Button size="lg" className="rounded-full bg-secondary text-secondary-foreground hover:bg-secondary/90 h-14 px-8 text-lg font-bold gap-2">
+              <Navigation className="h-5 w-5" />
+              Explore Map
+            </Button>
+            <Button size="lg" variant="outline" className="rounded-full border-primary-foreground/20 bg-primary-foreground/10 backdrop-blur hover:bg-primary-foreground/20 h-14 px-8 text-lg font-bold gap-2">
+              <Compass className="h-5 w-5" />
+              Virtual Tour
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* Quick Navigation Cards */}
+      <section className="container -mt-20 relative z-20 pb-12">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          {quickLinks.map((link) => (
+            <Link
+              key={link.label}
+              to={link.path}
+              className="bg-card hover:bg-accent p-6 rounded-2xl shadow-xl transition-all hover:-translate-y-1 flex flex-col items-center text-center gap-3 group border border-border"
+            >
+              <div className={cn("p-3 rounded-xl text-white transition-transform group-hover:scale-110", link.color)}>
+                <link.icon className="h-6 w-6" />
+              </div>
+              <span className="font-semibold text-sm">{link.label}</span>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      {/* Freshers Mode Section */}
+      <section className="container py-12 md:py-24 grid md:grid-cols-2 gap-12 items-center">
+        <div className="space-y-6">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-secondary/20 text-secondary font-bold text-sm">
+            <Navigation className="h-4 w-4" />
+            <span>NEW STUDENT?</span>
+          </div>
+          <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight text-primary">
+            Guided Freshers Mode
+          </h2>
+          <p className="text-lg text-muted-foreground leading-relaxed">
+            Welcome to FUTA! Getting lost is part of the tradition, but it doesn't have to be.
+            Our Guided Mode takes you step-by-step from your hostel to your department, lecture halls, and back.
+          </p>
+          <ul className="space-y-4">
+            <li className="flex items-start gap-3">
+              <div className="bg-primary/10 p-1.5 rounded-full mt-1">
+                <Navigation className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <span className="font-bold">Step-by-step navigation:</span>
+                <p className="text-sm text-muted-foreground">"Turn left at the big mango tree."</p>
+              </div>
+            </li>
+            <li className="flex items-start gap-3">
+              <div className="bg-primary/10 p-1.5 rounded-full mt-1">
+                <Clock className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <span className="font-bold">Hill-aware routing:</span>
+                <p className="text-sm text-muted-foreground">Optimal paths that avoid steep climbs when you're tired.</p>
+              </div>
+            </li>
+          </ul>
+          <Button size="lg" className="rounded-xl px-8 h-12 text-lg font-bold">
+            Start Guided Experience
+          </Button>
+        </div>
+        <div className="relative aspect-square rounded-3xl overflow-hidden shadow-2xl border-8 border-background">
+           <div className="absolute inset-0 bg-primary/10 flex items-center justify-center">
+              <img
+                src="https://images.unsplash.com/photo-1541339907198-e08756ebafe3?auto=format&fit=crop&q=80&w=800"
+                alt="University Building"
+                className="w-full h-full object-cover opacity-60 mix-blend-multiply"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-primary/80 to-transparent" />
+              <div className="absolute bottom-8 left-8 right-8 text-white space-y-2">
+                <p className="text-lg font-bold">SEET Complex</p>
+                <p className="text-sm opacity-80 italic">"Walk past the Senate building. Turn left at the big mango tree."</p>
+              </div>
+           </div>
+        </div>
+      </section>
+
+      {/* Search Categories Grid */}
+      <section className="bg-muted/50 py-20">
+        <div className="container space-y-12">
+          <div className="text-center space-y-4">
+            <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight text-primary">Search Anything</h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">Quickly find whatever you need across the campus.</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {categories.map((cat) => (
+              <div key={cat.id} className="bg-background p-8 rounded-2xl shadow-sm hover:shadow-md transition-all border border-border group cursor-pointer">
+                <h3 className="text-xl font-bold mb-2 group-hover:text-primary transition-colors">{cat.label}</h3>
+                <p className="text-muted-foreground">{cat.count} verified locations</p>
+              </div>
+            ))}
+          </div>
+          <div className="text-center">
+             <Button variant="outline" size="lg" className="rounded-xl font-bold">
+               View Full Directory
+             </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* Timetable & Emergency */}
+      <section className="container py-24 grid md:grid-cols-2 gap-12">
+        <div className="bg-primary p-10 rounded-3xl text-primary-foreground space-y-6">
+          <div className="h-14 w-14 bg-primary-foreground/20 rounded-2xl flex items-center justify-center">
+            <Bell className="h-8 w-8 text-primary-foreground" />
+          </div>
+          <h2 className="text-3xl font-extrabold tracking-tight">Never Miss a Lecture</h2>
+          <p className="text-lg opacity-90 leading-relaxed">
+            Sync your course timetable and get notifications before class starts. We even tell you exactly when to leave based on your current location and walking speed.
+          </p>
+          <Button variant="outline" className="border-primary-foreground/20 hover:bg-primary-foreground/10 h-12 rounded-xl font-bold text-lg">
+            Add My Courses
+          </Button>
+        </div>
+
+        <div className="bg-destructive p-10 rounded-3xl text-destructive-foreground space-y-6">
+          <div className="h-14 w-14 bg-destructive-foreground/20 rounded-2xl flex items-center justify-center">
+            <Shield className="h-8 w-8 text-destructive-foreground" />
+          </div>
+          <h2 className="text-3xl font-extrabold tracking-tight">Emergency Mode</h2>
+          <p className="text-lg opacity-90 leading-relaxed">
+            One tap for immediate help. Connect directly to FUTA Security, the Health Centre, or Fire Service. Your live location is shared automatically.
+          </p>
+          <Button variant="outline" className="border-destructive-foreground/20 hover:bg-destructive-foreground/10 h-12 rounded-xl font-bold text-lg">
+            Open Emergency Panel
+          </Button>
+        </div>
+      </section>
+
+      {/* Floating Emergency Button (Mobile/Desktop Always) */}
+      <Button
+        size="lg"
+        className="fixed bottom-6 right-6 h-16 w-16 rounded-full bg-destructive text-destructive-foreground shadow-2xl z-50 hover:bg-destructive/90 animate-bounce"
+        title="Emergency Assistance"
+      >
+        <Phone className="h-8 w-8" />
+      </Button>
+    </Layout>
   );
 }
