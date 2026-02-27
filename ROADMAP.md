@@ -7,10 +7,11 @@ To provide a seamless, intelligent, and reliable navigation experience for the F
 
 ## 🛠️ Phase 1: Infrastructure & Data Foundation
 **Goal**: Build a robust backend to manage campus data dynamically.
-- [ ] **Database Integration**: Set up a Neon PostgreSQL database via [MCP Integration](#open-mcp-popover).
-- [ ] **GeoJSON Schema**: Define a standard GeoJSON format for all campus landmarks (Schools, Halls, ATMs, Trees).
+- [ ] **Database Integration**: Set up a **Supabase** project via [MCP Integration](#open-mcp-popover).
+- [ ] **Authentication**: Use Supabase Auth for student and staff login.
+- [ ] **GeoJSON Schema**: Define a standard GeoJSON format for all campus landmarks (Schools, Halls, ATMs, Trees) in Supabase Tables.
 - [ ] **RESTful API**:
-  - `GET /api/locations`: Fetch all campus markers.
+  - `GET /api/locations`: Fetch all campus markers from Supabase.
   - `GET /api/search`: Fuzzy search for buildings or departments.
   - `POST /api/locations`: Admin-only endpoint for adding new spots.
 
@@ -29,11 +30,11 @@ To provide a seamless, intelligent, and reliable navigation experience for the F
   - [ ] Implement landmark-based text instructions ("Turn left at the big mango tree").
   - [ ] Add voice prompts using the Web Speech API.
 - [ ] **Timetable Sync**:
-  - [ ] User authentication (using JWT or Clerk/Supabase).
+  - [ ] Use **Supabase Auth** for student and staff profiles.
   - [ ] Course-to-venue mapping logic.
-  - [ ] **Route Reminders**: Push notifications 15-20 mins before class.
+  - [ ] **Route Reminders**: Push notifications 15-20 mins before class using Supabase Edge Functions.
 - [ ] **Emergency 2.0**:
-  - [ ] Live location sharing with FUTA Security.
+  - [ ] Live location sharing with FUTA Security via Supabase Realtime.
   - [ ] One-tap SOS triggers for different emergency types (Medical, Fire, Security).
 
 ## 📶 Phase 4: Offline Resilience (The "FUTA Corner" Mode)
