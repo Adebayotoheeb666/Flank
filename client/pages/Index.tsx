@@ -133,13 +133,13 @@ export default function Index() {
         <div className="relative aspect-square rounded-3xl overflow-hidden shadow-2xl border-8 border-background">
            <div className="absolute inset-0 bg-primary/10 flex items-center justify-center">
               <img
-                src="https://images.unsplash.com/photo-1541339907198-e08756ebafe3?auto=format&fit=crop&q=80&w=800"
-                alt="University Building"
-                className="w-full h-full object-cover opacity-60 mix-blend-multiply"
+                src="https://cdn.builder.io/api/v1/image/assets%2F81c227575c2f438fa8ab005c4c674b2d%2Fb468438e83c744bc84c3de4ecb943f88?format=webp&width=800&height=1200"
+                alt="FUTA Senate Building"
+                className="w-full h-full object-cover opacity-90"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-primary/80 to-transparent" />
               <div className="absolute bottom-8 left-8 right-8 text-white space-y-2">
-                <p className="text-lg font-bold">SEET Complex</p>
+                <p className="text-lg font-bold">Senate Building</p>
                 <p className="text-sm opacity-80 italic">"Walk past the Senate building. Turn left at the big mango tree."</p>
               </div>
            </div>
@@ -171,30 +171,34 @@ export default function Index() {
 
       {/* Timetable & Emergency */}
       <section className="container py-24 grid md:grid-cols-2 gap-12">
-        <div className="bg-primary p-10 rounded-3xl text-primary-foreground space-y-6">
+        <div className="bg-primary p-10 rounded-3xl text-primary-foreground space-y-6 flex flex-col">
           <div className="h-14 w-14 bg-primary-foreground/20 rounded-2xl flex items-center justify-center">
             <Bell className="h-8 w-8 text-primary-foreground" />
           </div>
           <h2 className="text-3xl font-extrabold tracking-tight">Never Miss a Lecture</h2>
-          <p className="text-lg opacity-90 leading-relaxed">
+          <p className="text-lg opacity-90 leading-relaxed flex-1">
             Sync your course timetable and get notifications before class starts. We even tell you exactly when to leave based on your current location and walking speed.
           </p>
-          <Button variant="outline" className="border-primary-foreground/20 hover:bg-primary-foreground/10 h-12 rounded-xl font-bold text-lg">
-            Add My Courses
-          </Button>
+          <div className="pt-4">
+            <Button variant="outline" className="w-full md:w-auto border-primary-foreground/40 hover:bg-primary-foreground/10 text-primary-foreground h-12 rounded-xl font-bold text-lg">
+              Add My Courses
+            </Button>
+          </div>
         </div>
 
-        <div className="bg-destructive p-10 rounded-3xl text-destructive-foreground space-y-6">
+        <div className="bg-destructive p-10 rounded-3xl text-destructive-foreground space-y-6 flex flex-col">
           <div className="h-14 w-14 bg-destructive-foreground/20 rounded-2xl flex items-center justify-center">
             <Shield className="h-8 w-8 text-destructive-foreground" />
           </div>
           <h2 className="text-3xl font-extrabold tracking-tight">Emergency Mode</h2>
-          <p className="text-lg opacity-90 leading-relaxed">
+          <p className="text-lg opacity-90 leading-relaxed flex-1">
             One tap for immediate help. Connect directly to FUTA Security, the Health Centre, or Fire Service. Your live location is shared automatically.
           </p>
-          <Button variant="outline" className="border-destructive-foreground/20 hover:bg-destructive-foreground/10 h-12 rounded-xl font-bold text-lg">
-            Open Emergency Panel
-          </Button>
+          <div className="pt-4">
+            <Button variant="outline" className="w-full md:w-auto border-destructive-foreground/40 hover:bg-destructive-foreground/10 text-destructive-foreground h-12 rounded-xl font-bold text-lg">
+              Open Emergency Panel
+            </Button>
+          </div>
         </div>
       </section>
 
