@@ -1,0 +1,21 @@
+{
+  "nodes": [
+    { "id": "node_gate", "name": "Main Gate", "lat": 7.2950, "lng": 5.1250, "type": "landmark" },
+    { "id": "node_inter_1", "name": "Senate Junction", "lat": 7.3000, "lng": 5.1300, "type": "intersection" },
+    { "id": "node_senate", "name": "Senate Building Access", "lat": 7.3010, "lng": 5.1310, "type": "building" },
+    { "id": "node_inter_2", "name": "Library Junction", "lat": 7.3020, "lng": 5.1320, "type": "intersection" },
+    { "id": "node_library", "name": "Library Access", "lat": 7.3025, "lng": 5.1325, "type": "building" },
+    { "id": "node_seet", "name": "SEET Complex Access", "lat": 7.3000, "lng": 5.1300, "type": "building" },
+    { "id": "node_saat", "name": "SAAT Building Access", "lat": 7.3030, "lng": 5.1330, "type": "building" },
+    { "id": "node_mango", "name": "Big Mango Tree", "lat": 7.3005, "lng": 5.1305, "type": "landmark" }
+  ],
+  "edges": [
+    { "from": "node_gate", "to": "node_inter_1", "distance": 800, "elevation_gain": 20 },
+    { "from": "node_inter_1", "to": "node_senate", "distance": 150, "elevation_gain": 5 },
+    { "from": "node_inter_1", "to": "node_seet", "distance": 50, "elevation_gain": 0 },
+    { "from": "node_inter_1", "to": "node_mango", "distance": 80, "elevation_gain": 2 },
+    { "from": "node_mango", "to": "node_inter_2", "distance": 250, "elevation_gain": 15 },
+    { "from": "node_inter_2", "to": "node_library", "distance": 70, "elevation_gain": 2 },
+    { "from": "node_inter_2", "to": "node_saat", "distance": 150, "elevation_gain": 10 }
+  ]
+}

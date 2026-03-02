@@ -6,12 +6,14 @@ import {
   Search, MapPin, Navigation, Compass, Phone,
   Info, Filter, Layers, ZoomIn, ZoomOut,
   MoreVertical, Clock, TrendingUp, AlertCircle, ChevronRight, ChevronLeft,
-  X, LocateFixed, TreeDeciduous, Building2, Utensils, CreditCard, Activity, GraduationCap
+  X, LocateFixed, TreeDeciduous, Building2, Utensils, CreditCard, Activity, GraduationCap,
+  ArrowRight
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Location } from "@shared/api";
+import { RouteResponse, RouteStep } from "@shared/navigation";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 
@@ -28,6 +30,8 @@ export default function MapPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isNavigating, setIsNavigating] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [route, setRoute] = useState<RouteResponse | null>(null);
+  const [preferFlat, setPreferFlat] = useState(false);
   const markers = useRef<Record<string, mapboxgl.Marker>>({});
 
   // Initialize Mapbox
@@ -121,6 +125,7 @@ export default function MapPage() {
   const handleLocationClick = (loc: Location) => {
     setSelectedLocation(loc);
     setIsNavigating(false);
+    setRoute(null);
     if (map.current) {
       map.current.flyTo({
         center: [loc.coordinates.lng, loc.coordinates.lat],
@@ -130,8 +135,95 @@ export default function MapPage() {
     }
   };
 
-  const startNavigation = () => {
-    setIsNavigating(true);
+  const startNavigation = async () => {
+    if (!selectedLocation) return;
+
+    try {
+      // Mock user location for now (Main Gate area)
+      const userLat = 7.2950;
+      const userLng = 5.1250;
+
+      const response = await fetch("/api/route", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          start_lat: userLat,
+          start_lng: userLng,
+          end_location_id: selectedLocation.id,
+          prefer_flat: preferFlat
+        })
+      });
+
+      if (!response.ok) throw new Error("Failed to calculate route");
+
+      const data: RouteResponse = await response.json();
+      setRoute(data);
+      setIsNavigating(true);
+
+      // Draw route on map
+      if (map.current) {
+        if (map.current.getSource('route')) {
+          (map.current.getSource('route') as mapboxgl.GeoJSONSource).setData({
+            type: 'Feature',
+            properties: {},
+            geometry: {
+              type: 'LineString',
+              coordinates: data.path
+            }
+          });
+        } else {
+          map.current.addSource('route', {
+            type: 'geojson',
+            data: {
+              type: 'Feature',
+              properties: {},
+              geometry: {
+                type: 'LineString',
+                coordinates: data.path
+              }
+            }
+          });
+
+          map.current.addLayer({
+            id: 'route',
+            type: 'line',
+            source: 'route',
+            layout: {
+              'line-join': 'round',
+              'line-cap': 'round'
+            },
+            paint: {
+              'line-color': '#888',
+              'line-width': 8,
+              'line-dasharray': [1, 2]
+            }
+          });
+
+          // Animated layer on top
+          map.current.addLayer({
+            id: 'route-animated',
+            type: 'line',
+            source: 'route',
+            layout: {
+              'line-join': 'round',
+              'line-cap': 'round'
+            },
+            paint: {
+              'line-color': 'hsl(270, 70%, 40%)',
+              'line-width': 6
+            }
+          });
+        }
+
+        // Fit bounds to route
+        const bounds = new mapboxgl.LngLatBounds();
+        data.path.forEach(coord => bounds.extend(coord as [number, number]));
+        map.current.fitBounds(bounds, { padding: 50 });
+      }
+
+    } catch (error) {
+      console.error("Navigation error:", error);
+    }
   };
 
   return (
@@ -242,7 +334,7 @@ export default function MapPage() {
               "absolute bottom-6 left-1/2 -translate-x-1/2 w-[90%] md:w-[600px] bg-card shadow-2xl rounded-3xl border animate-in slide-in-from-bottom-12 duration-500 overflow-hidden",
               isNavigating && "w-full md:w-[400px] left-auto right-6 bottom-6 translate-x-0"
             )}>
-              {isNavigating ? (
+              {isNavigating && route ? (
                 /* Navigation Instructions */
                 <div className="p-6 space-y-4">
                   <div className="flex items-center justify-between">
@@ -250,7 +342,14 @@ export default function MapPage() {
                       <Navigation className="h-5 w-5 text-primary" />
                       Navigating to {selectedLocation.name}
                     </h3>
-                    <Button variant="ghost" size="icon" onClick={() => setIsNavigating(false)}>
+                    <Button variant="ghost" size="icon" onClick={() => {
+                      setIsNavigating(false);
+                      if (map.current && map.current.getLayer('route')) {
+                        map.current.removeLayer('route');
+                        map.current.removeLayer('route-animated');
+                        map.current.removeSource('route');
+                      }
+                    }}>
                       <X className="h-5 w-5" />
                     </Button>
                   </div>
@@ -258,58 +357,52 @@ export default function MapPage() {
                     <div className="flex items-center gap-4 bg-muted p-4 rounded-2xl border">
                       <div className="flex flex-col items-center">
                         <Clock className="h-5 w-5 text-muted-foreground" />
-                        <span className="text-[10px] font-bold">12 min</span>
+                        <span className="text-[10px] font-bold">{Math.round(route.total_distance / 80)} min</span>
                       </div>
                       <div className="h-8 w-px bg-border" />
                       <div className="flex flex-col items-center">
-                        <TrendingUp className="h-5 w-5 text-orange-500" />
-                        <span className="text-[10px] font-bold">Hill Path</span>
+                        <TrendingUp className={cn("h-5 w-5", route.total_elevation_gain > 10 ? "text-orange-500" : "text-green-500")} />
+                        <span className="text-[10px] font-bold">{route.total_elevation_gain > 10 ? "Hilly" : "Flat"}</span>
                       </div>
                       <div className="h-8 w-px bg-border" />
                       <div className="flex-1 text-sm font-medium">
-                        850m • Via Senate Road
+                        {route.total_distance}m • Optimized Path
                       </div>
                     </div>
 
-                    <div className="space-y-4 pt-2">
-                      <div className="flex gap-4">
-                        <div className="flex flex-col items-center gap-1">
-                          <div className="w-4 h-4 rounded-full bg-primary" />
-                          <div className="w-0.5 h-full bg-border" />
-                        </div>
-                        <div className="flex-1 pb-4">
-                          <p className="font-bold text-sm">Walk past the Senate Building</p>
-                          <p className="text-xs text-muted-foreground">Keep the main gate to your right.</p>
-                        </div>
-                      </div>
-                      <div className="flex gap-4">
-                        <div className="flex flex-col items-center gap-1">
-                          <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
-                            <TreeDeciduous className="h-4 w-4 text-green-600" />
+                    <ScrollArea className="max-h-[200px] pr-4">
+                      <div className="space-y-4 pt-2">
+                        {route.steps.map((step, idx) => (
+                          <div key={idx} className="flex gap-4">
+                            <div className="flex flex-col items-center gap-1">
+                              <div className={cn(
+                                "w-4 h-4 rounded-full",
+                                idx === 0 ? "bg-blue-500" : (idx === route.steps.length - 1 ? "border-2 border-primary" : "bg-primary")
+                              )} />
+                              {idx < route.steps.length - 1 && <div className="w-0.5 h-full bg-border" />}
+                            </div>
+                            <div className="flex-1 pb-4">
+                              <p className="font-bold text-sm">{step.instruction}</p>
+                              <p className="text-xs text-muted-foreground">{step.distance}m</p>
+                            </div>
                           </div>
-                          <div className="w-0.5 h-full bg-border" />
-                        </div>
-                        <div className="flex-1 pb-4">
-                          <p className="font-bold text-sm">Turn left at the Big Mango Tree</p>
-                          <p className="text-xs text-muted-foreground">Look for the orange seating benches.</p>
-                        </div>
+                        ))}
                       </div>
-                      <div className="flex gap-4">
-                        <div className="flex flex-col items-center gap-1">
-                          <div className="w-4 h-4 rounded-full border-2 border-primary" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-bold text-sm">Arrive at {selectedLocation.name}</p>
-                        </div>
-                      </div>
-                    </div>
+                    </ScrollArea>
 
                     <div className="flex gap-2">
                       <Button className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold h-12 rounded-xl gap-2">
                         <Phone className="h-5 w-5" />
                         Emergency help
                       </Button>
-                      <Button variant="outline" className="h-12 rounded-xl" onClick={() => setIsNavigating(false)}>
+                      <Button variant="outline" className="h-12 rounded-xl" onClick={() => {
+                        setIsNavigating(false);
+                        if (map.current && map.current.getLayer('route')) {
+                          map.current.removeLayer('route');
+                          map.current.removeLayer('route-animated');
+                          map.current.removeSource('route');
+                        }
+                      }}>
                         Exit
                       </Button>
                     </div>
@@ -319,8 +412,8 @@ export default function MapPage() {
                 /* Location Details */
                 <div className="flex flex-col md:flex-row">
                   <div className="md:w-1/3 aspect-video md:aspect-auto bg-muted">
-                    <img 
-                      src={`https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&q=80&w=400`} 
+                    <img
+                      src={`https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&q=80&w=400`}
                       className="w-full h-full object-cover"
                       alt={selectedLocation.name}
                     />
@@ -336,26 +429,40 @@ export default function MapPage() {
                         <X className="h-5 w-5" />
                       </Button>
                     </div>
-                    
+
                     <div className="flex items-center gap-6">
                       <div className="flex items-center gap-2">
                         <Clock className="h-4 w-4 text-muted-foreground" />
                         <span className="text-sm font-medium">8:00 AM - 6:00 PM</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Navigation className="h-4 w-4 text-primary" />
-                        <span className="text-sm font-medium">1.2 km away</span>
+                        <TrendingUp className="h-4 w-4 text-primary" />
+                        <span className="text-sm font-medium">Hill-Aware Routing Ready</span>
                       </div>
                     </div>
 
-                    <div className="flex gap-3">
-                      <Button className="flex-1 h-12 rounded-xl font-bold gap-2" onClick={startNavigation}>
-                        <Navigation className="h-5 w-5" />
-                        Get Directions
-                      </Button>
-                      <Button variant="outline" size="icon" className="h-12 w-12 rounded-xl">
-                        <MoreVertical className="h-5 w-5" />
-                      </Button>
+                    <div className="flex flex-col gap-3">
+                      <div className="flex items-center gap-2 mb-1">
+                         <input
+                           type="checkbox"
+                           id="preferFlat"
+                           checked={preferFlat}
+                           onChange={(e) => setPreferFlat(e.target.checked)}
+                           className="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary"
+                         />
+                         <label htmlFor="preferFlat" className="text-sm font-medium text-muted-foreground cursor-pointer">
+                           Avoid steep hills (longer path)
+                         </label>
+                      </div>
+                      <div className="flex gap-3">
+                        <Button className="flex-1 h-12 rounded-xl font-bold gap-2" onClick={startNavigation}>
+                          <Navigation className="h-5 w-5" />
+                          Get Directions
+                        </Button>
+                        <Button variant="outline" size="icon" className="h-12 w-12 rounded-xl">
+                          <MoreVertical className="h-5 w-5" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </div>

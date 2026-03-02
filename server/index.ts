@@ -3,6 +3,7 @@ import express from "express";
 import cors from "cors";
 import { handleDemo } from "./routes/demo";
 import { handleGetLocations, handlePostLocation, handleSearchLocations } from "./routes/locations";
+import { handleRouteRequest } from "./routes/navigation";
 
 export function createServer() {
   const app = express();
@@ -24,6 +25,7 @@ export function createServer() {
   app.get("/api/locations", handleGetLocations);
   app.get("/api/search", handleSearchLocations);
   app.post("/api/locations", handlePostLocation);
+  app.post("/api/route", handleRouteRequest);
 
   return app;
 }
