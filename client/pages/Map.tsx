@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import Layout from "@/components/Layout";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -12,8 +12,15 @@ import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Location } from "@/shared/api";
+import mapboxgl from "mapbox-gl";
+import "mapbox-gl/dist/mapbox-gl.css";
+
+// FUTA Central Coordinates
+const FUTA_CENTER: [number, number] = [5.1300, 7.3000];
 
 export default function MapPage() {
+  const mapContainer = useRef<HTMLDivElement>(null);
+  const map = useRef<mapboxgl.Map | null>(null);
   const [locations, setLocations] = useState<Location[]>([]);
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -21,6 +28,70 @@ export default function MapPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isNavigating, setIsNavigating] = useState(false);
   const [loading, setLoading] = useState(true);
+  const markers = useRef<Record<string, mapboxgl.Marker>>({});
+
+  // Initialize Mapbox
+  useEffect(() => {
+    if (map.current) return; // initialize map only once
+
+    const token = (import.meta as any).env?.VITE_MAPBOX_TOKEN || "REPLACE_ENV.MAPBOX_TOKEN";
+
+    if (token === "REPLACE_ENV.MAPBOX_TOKEN") {
+      console.error("Mapbox token is missing! Please add VITE_MAPBOX_TOKEN to your environment variables.");
+    }
+
+    mapboxgl.accessToken = token;
+
+    map.current = new mapboxgl.Map({
+      container: mapContainer.current!,
+      style: "mapbox://styles/mapbox/streets-v12",
+      center: FUTA_CENTER,
+      zoom: 15,
+    });
+
+    map.current.addControl(new mapboxgl.NavigationControl(), "top-right");
+
+    return () => {
+      map.current?.remove();
+      map.current = null;
+    };
+  }, []);
+
+  // Handle markers
+  useEffect(() => {
+    if (!map.current) return;
+
+    // Clear old markers
+    Object.values(markers.current).forEach(marker => marker.remove());
+    markers.current = {};
+
+    locations.forEach(loc => {
+      const el = document.createElement('div');
+      el.className = 'custom-marker';
+
+      const pin = document.createElement('div');
+      pin.className = cn(
+        "p-1 rounded-full border-2 border-white shadow-lg transition-all hover:scale-125 cursor-pointer",
+        selectedLocation?.id === loc.id ? "bg-primary scale-125" : "bg-slate-500"
+      );
+
+      // Basic inner dot for now, we can add icons later
+      const dot = document.createElement('div');
+      dot.className = "w-2 h-2 bg-white rounded-full";
+      pin.appendChild(dot);
+      el.appendChild(pin);
+
+      const marker = new mapboxgl.Marker(el)
+        .setLngLat([loc.coordinates.lng, loc.coordinates.lat])
+        .addTo(map.current!);
+
+      el.addEventListener('click', () => {
+        handleLocationClick(loc);
+      });
+
+      markers.current[loc.id] = marker;
+    });
+  }, [locations, selectedLocation]);
 
   useEffect(() => {
     fetchLocations();
@@ -50,6 +121,13 @@ export default function MapPage() {
   const handleLocationClick = (loc: Location) => {
     setSelectedLocation(loc);
     setIsNavigating(false);
+    if (map.current) {
+      map.current.flyTo({
+        center: [loc.coordinates.lng, loc.coordinates.lat],
+        zoom: 17,
+        essential: true
+      });
+    }
   };
 
   const startNavigation = () => {
@@ -146,82 +224,13 @@ export default function MapPage() {
 
         {/* Map View Area */}
         <main className="flex-1 relative bg-muted overflow-hidden">
-          {/* Simulated Map Canvas */}
-          <div className="absolute inset-0 bg-[#f8f9fa] flex items-center justify-center p-20">
-            <div className="relative w-full h-full max-w-5xl max-h-[800px] border-4 border-white shadow-2xl rounded-3xl overflow-hidden bg-slate-200">
-              {/* Map Layers Grid */}
-              <div className="absolute inset-0 grid grid-cols-12 grid-rows-12 opacity-30 pointer-events-none">
-                {Array.from({ length: 144 }).map((_, i) => (
-                  <div key={i} className="border-[0.5px] border-slate-400" />
-                ))}
-              </div>
-              
-              {/* Roads (Stylized Lines) */}
-              <svg className="absolute inset-0 w-full h-full pointer-events-none">
-                <path d="M 0 500 Q 500 500 1000 500" stroke="white" strokeWidth="40" fill="none" opacity="0.8" />
-                <path d="M 500 0 Q 500 500 500 1000" stroke="white" strokeWidth="40" fill="none" opacity="0.8" />
-                <path d="M 0 500 Q 500 500 1000 500" stroke="#cbd5e1" strokeWidth="2" strokeDasharray="10" fill="none" />
-                <path d="M 500 0 Q 500 500 500 1000" stroke="#cbd5e1" strokeWidth="2" strokeDasharray="10" fill="none" />
-              </svg>
+          <div ref={mapContainer} className="absolute inset-0" />
 
-              {/* Location Pins */}
-              {locations.map(loc => (
-                <button
-                  key={loc.id}
-                  className={cn(
-                    "absolute w-8 h-8 -ml-4 -mt-8 transition-all hover:scale-125 z-10 group",
-                    selectedLocation?.id === loc.id ? "scale-125 z-20" : "opacity-80 hover:opacity-100"
-                  )}
-                  style={{ left: `${loc.coordinates.x || 50}%`, top: `${loc.coordinates.y || 50}%` }}
-                  onClick={() => handleLocationClick(loc)}
-                >
-                  <MapPin className={cn(
-                    "w-full h-full drop-shadow-lg transition-colors",
-                    selectedLocation?.id === loc.id ? "text-primary fill-primary/20" : "text-slate-500 fill-white"
-                  )} />
-                  {/* Tooltip on hover */}
-                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-black text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                    {loc.name}
-                  </div>
-                </button>
-              ))}
-
-              {/* Navigation Route Path (Simulated) */}
-              {isNavigating && selectedLocation && selectedLocation.coordinates.x && selectedLocation.coordinates.y && (
-                <svg className="absolute inset-0 w-full h-full pointer-events-none">
-                  <path
-                    d={`M 100 800 L 500 800 L 500 ${selectedLocation.coordinates.y * 10} L ${selectedLocation.coordinates.x * 10} ${selectedLocation.coordinates.y * 10}`}
-                    stroke="var(--primary)"
-                    strokeWidth="4"
-                    fill="none"
-                    strokeDasharray="10 5"
-                    className="animate-[dash_20s_linear_infinite]"
-                  />
-                  <circle cx="100" cy="800" r="8" fill="var(--primary)" className="animate-pulse" />
-                </svg>
-              )}
-
-              {/* User Position Marker */}
-              <div className="absolute left-[10%] top-[80%] -ml-4 -mt-4 z-20">
-                <div className="relative">
-                  <div className="absolute inset-0 bg-blue-500 rounded-full animate-ping opacity-20 h-8 w-8 -m-1" />
-                  <div className="bg-blue-600 border-2 border-white rounded-full h-6 w-6 shadow-xl flex items-center justify-center">
-                    <Navigation className="h-3 w-3 text-white" />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Map Controls */}
-          <div className="absolute right-6 top-6 flex flex-col gap-2">
+          {/* Map Controls (Overlaying Mapbox) */}
+          <div className="absolute right-6 top-6 flex flex-col gap-2 z-10">
             <Button size="icon" variant="secondary" className="rounded-full shadow-lg bg-background/80 backdrop-blur">
               <Layers className="h-5 w-5" />
             </Button>
-            <div className="flex flex-col border rounded-2xl overflow-hidden shadow-lg bg-background/80 backdrop-blur">
-              <Button size="icon" variant="ghost" className="rounded-none border-b"><ZoomIn className="h-5 w-5" /></Button>
-              <Button size="icon" variant="ghost" className="rounded-none"><ZoomOut className="h-5 w-5" /></Button>
-            </div>
             <Button size="icon" variant="secondary" className="rounded-full shadow-lg bg-background/80 backdrop-blur">
               <LocateFixed className="h-5 w-5 text-blue-600" />
             </Button>
