@@ -13,4 +13,8 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.warn("Supabase URL or Anon Key is missing. Check your environment variables.");
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+const isUrlValid = supabaseUrl && supabaseUrl.startsWith("http");
+
+export const supabase = isUrlValid
+  ? createClient(supabaseUrl, supabaseAnonKey)
+  : (null as any); // Should only happen if env vars are missing
