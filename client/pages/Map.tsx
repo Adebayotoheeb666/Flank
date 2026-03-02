@@ -1,45 +1,53 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Layout from "@/components/Layout";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { 
-  Search, MapPin, Navigation, Compass, Phone, 
-  Info, Filter, Layers, ZoomIn, ZoomOut, 
+import {
+  Search, MapPin, Navigation, Compass, Phone,
+  Info, Filter, Layers, ZoomIn, ZoomOut,
   MoreVertical, Clock, TrendingUp, AlertCircle, ChevronRight, ChevronLeft,
   X, LocateFixed, TreeDeciduous, Building2, Utensils, CreditCard, Activity, GraduationCap
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-
-// Mock Location Data
-const LOCATIONS = [
-  { id: 'seet', name: "SEET Complex", type: "School", category: "school", coords: { x: 45, y: 30 }, description: "School of Engineering and Engineering Technology" },
-  { id: 'senate', name: "Senate Building", type: "Admin", category: "admin", coords: { x: 50, y: 50 }, description: "Administrative headquarters of FUTA" },
-  { id: 'library', name: "Albert Ilemobade Library", type: "Facility", category: "study", coords: { x: 55, y: 45 }, description: "Central university library" },
-  { id: 'food-court', name: "Abiola Food Court", type: "Dining", category: "food", coords: { x: 40, y: 60 }, description: "Popular student cafeteria" },
-  { id: 'health', name: "Health Centre", type: "Medical", category: "health", coords: { x: 30, y: 40 }, description: "24/7 medical services for students and staff" },
-  { id: 'saat', name: "SAAT Building", type: "School", category: "school", coords: { x: 60, y: 35 }, description: "School of Agriculture and Agricultural Technology" },
-  { id: 'atm-gt', name: "GTBank ATM", type: "Bank", category: "bank", coords: { x: 52, y: 55 }, description: "Bank and ATM gallery" },
-  { id: 'mango-tree', name: "The Big Mango Tree", type: "Landmark", category: "landmark", coords: { x: 48, y: 48 }, description: "Famous campus meeting point" }
-];
+import { Location } from "@/shared/api";
 
 export default function MapPage() {
-  const [selectedLocation, setSelectedLocation] = useState<typeof LOCATIONS[0] | null>(null);
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isNavigating, setIsNavigating] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchLocations();
+  }, [activeCategory]);
+
+  const fetchLocations = async () => {
+    try {
+      setLoading(true);
+      const url = activeCategory === "all" ? "/api/locations" : `/api/locations?category=${activeCategory}`;
+      const response = await fetch(url);
+      const data = await response.json();
+      setLocations(data);
+    } catch (error) {
+      console.error("Failed to fetch locations:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredLocations = useMemo(() => {
-    return LOCATIONS.filter(loc => {
+    return locations.filter(loc => {
       const matchesSearch = loc.name.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesCategory = activeCategory === "all" || loc.category === activeCategory;
-      return matchesSearch && matchesCategory;
+      return matchesSearch;
     });
-  }, [searchQuery, activeCategory]);
+  }, [searchQuery, locations]);
 
-  const handleLocationClick = (loc: typeof LOCATIONS[0]) => {
+  const handleLocationClick = (loc: Location) => {
     setSelectedLocation(loc);
     setIsNavigating(false);
   };
@@ -157,14 +165,14 @@ export default function MapPage() {
               </svg>
 
               {/* Location Pins */}
-              {LOCATIONS.map(loc => (
+              {locations.map(loc => (
                 <button
                   key={loc.id}
                   className={cn(
                     "absolute w-8 h-8 -ml-4 -mt-8 transition-all hover:scale-125 z-10 group",
                     selectedLocation?.id === loc.id ? "scale-125 z-20" : "opacity-80 hover:opacity-100"
                   )}
-                  style={{ left: `${loc.coords.x}%`, top: `${loc.coords.y}%` }}
+                  style={{ left: `${loc.coordinates.x || 50}%`, top: `${loc.coordinates.y || 50}%` }}
                   onClick={() => handleLocationClick(loc)}
                 >
                   <MapPin className={cn(
@@ -179,14 +187,14 @@ export default function MapPage() {
               ))}
 
               {/* Navigation Route Path (Simulated) */}
-              {isNavigating && selectedLocation && (
+              {isNavigating && selectedLocation && selectedLocation.coordinates.x && selectedLocation.coordinates.y && (
                 <svg className="absolute inset-0 w-full h-full pointer-events-none">
-                  <path 
-                    d={`M 100 800 L 500 800 L 500 ${selectedLocation.coords.y * 10} L ${selectedLocation.coords.x * 10} ${selectedLocation.coords.y * 10}`} 
-                    stroke="var(--primary)" 
-                    strokeWidth="4" 
-                    fill="none" 
-                    strokeDasharray="10 5" 
+                  <path
+                    d={`M 100 800 L 500 800 L 500 ${selectedLocation.coordinates.y * 10} L ${selectedLocation.coordinates.x * 10} ${selectedLocation.coordinates.y * 10}`}
+                    stroke="var(--primary)"
+                    strokeWidth="4"
+                    fill="none"
+                    strokeDasharray="10 5"
                     className="animate-[dash_20s_linear_infinite]"
                   />
                   <circle cx="100" cy="800" r="8" fill="var(--primary)" className="animate-pulse" />

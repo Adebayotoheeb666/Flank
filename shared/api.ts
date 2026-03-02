@@ -10,3 +10,22 @@
 export interface DemoResponse {
   message: string;
 }
+
+export interface Location {
+  id: string;
+  name: string;
+  type: string;
+  category: string;
+  description: string;
+  coordinates: {
+    lat: number;
+    lng: number;
+    x?: number; // For the 2D mock map
+    y?: number; // For the 2D mock map
+  };
+  metadata?: Record<string, any>;
+}
+
+export interface SearchResponse {
+  locations: Location[];
+}

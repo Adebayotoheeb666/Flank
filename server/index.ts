@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import { handleDemo } from "./routes/demo";
+import { handleGetLocations, handlePostLocation, handleSearchLocations } from "./routes/locations";
 
 export function createServer() {
   const app = express();
@@ -18,6 +19,11 @@ export function createServer() {
   });
 
   app.get("/api/demo", handleDemo);
+
+  // FUTA Pathfinder API routes
+  app.get("/api/locations", handleGetLocations);
+  app.get("/api/search", handleSearchLocations);
+  app.post("/api/locations", handlePostLocation);
 
   return app;
 }
