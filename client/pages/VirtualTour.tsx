@@ -237,6 +237,18 @@ export default function VirtualTourPage() {
 
         {/* Main Tour Section */}
         <div className="container py-12 space-y-8">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center space-y-4">
+                <Loader className="h-12 w-12 animate-spin text-primary mx-auto" />
+                <p className="text-muted-foreground">Loading campus tour...</p>
+              </div>
+            </div>
+          ) : !selectedBuilding ? (
+            <Card className="p-12 text-center">
+              <p className="text-muted-foreground">No buildings available</p>
+            </Card>
+          ) : (
           <div className="grid lg:grid-cols-3 gap-8">
             {/* Media Viewer */}
             <div className="lg:col-span-2 space-y-4">
@@ -250,7 +262,7 @@ export default function VirtualTourPage() {
                   <ImagePlay className="h-4 w-4 mr-2" />
                   Gallery
                 </Button>
-                {selectedBuilding.panoramaImage && (
+                {selectedBuilding && selectedBuilding.panoramaImage && (
                   <Button
                     variant={viewMode === "panorama" ? "default" : "outline"}
                     onClick={() => setViewMode("panorama")}
@@ -283,7 +295,7 @@ export default function VirtualTourPage() {
                     <X className="h-4 w-4" />
                   </Button>
                 </Card>
-              ) : viewMode === "panorama" && selectedBuilding.panoramaImage ? (
+              ) : viewMode === "panorama" && selectedBuilding && selectedBuilding.panoramaImage ? (
                 <PanoramaViewer
                   imageUrl={selectedBuilding.panoramaImage}
                   title={`${selectedBuilding.shortName} - 360° View`}
@@ -291,7 +303,7 @@ export default function VirtualTourPage() {
               ) : (
                 <Card className="overflow-hidden aspect-video bg-slate-900 relative group">
                   <img
-                    src={selectedBuilding.images[currentImageIndex]}
+                    src={selectedBuilding.images?.[currentImageIndex] || ""}
                     alt={selectedBuilding.name}
                     className="w-full h-full object-cover"
                   />
@@ -485,6 +497,7 @@ export default function VirtualTourPage() {
               </Card>
             </div>
           </div>
+          )}
         </div>
 
         {/* Footer */}
