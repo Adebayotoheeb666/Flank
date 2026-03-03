@@ -1,14 +1,16 @@
 import { RequestHandler } from "express";
 import { MapErrorReport, MapErrorReportResponse } from "@shared/api";
+import { supabase } from "../../shared/supabase";
 
-// In-memory storage for demo (replace with Supabase in production)
+// Fallback in-memory storage (for when Supabase table is not available)
 const errorReports: MapErrorReport[] = [];
 
 /**
  * Submit a new error report
  * POST /api/error-reports
+ * TODO: Persist to Supabase once error_reports table is created
  */
-export const submitErrorReport: RequestHandler = (req, res) => {
+export const submitErrorReport: RequestHandler = async (req, res) => {
   try {
     const report: MapErrorReport = req.body;
 
@@ -29,8 +31,20 @@ export const submitErrorReport: RequestHandler = (req, res) => {
       createdAt: new Date().toISOString()
     };
 
-    // Store report
-    errorReports.push(newReport);
+    // Try to save to Supabase if available
+    if (supabase) {
+      const { error } = await supabase
+        .from("error_reports")
+        .insert([newReport])
+        .catch(() => ({ error: "Supabase not available" }));
+
+      if (error) {
+        console.warn("Failed to save error report to Supabase, using in-memory storage:", error);
+        errorReports.push(newReport);
+      }
+    } else {
+      errorReports.push(newReport);
+    }
 
     console.log(`[Error Report] New report submitted: ${newReport.id}`, {
       type: newReport.type,

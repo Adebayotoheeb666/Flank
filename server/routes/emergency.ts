@@ -8,6 +8,29 @@ const sosResponders = {
   security: { name: "FUTA Security", eta: 120 }
 };
 
+// Emergency contact data (should be moved to Supabase once emergency_contacts table is created)
+const EMERGENCY_CONTACTS = [
+  { id: "security", title: "FUTA Security", phone: "0801-234-5678", type: "security" },
+  { id: "health", title: "Health Centre", phone: "0802-345-6789", type: "medical" },
+  { id: "fire", title: "Fire Service", phone: "0803-456-7890", type: "fire" }
+];
+
+/**
+ * GET /api/emergency/contacts
+ * Get list of emergency contacts
+ * TODO: Replace with Supabase query once emergency_contacts table is created
+ */
+export const getEmergencyContacts: RequestHandler = async (req, res) => {
+  try {
+    // TODO: Query from Supabase once table is created
+    // const { data, error } = await supabase.from("emergency_contacts").select("*");
+    res.json(EMERGENCY_CONTACTS);
+  } catch (error) {
+    console.error("Get emergency contacts error:", error);
+    res.status(500).json({ error: "Failed to get emergency contacts" });
+  }
+};
+
 /**
  * POST /api/emergency/sos
  * Trigger an emergency SOS alert

@@ -17,7 +17,8 @@ import {
   getSOSStatus,
   resolveSOSAlert,
   cancelSOSAlert,
-  getActiveSOS
+  getActiveSOS,
+  getEmergencyContacts
 } from "./routes/emergency";
 import {
   submitErrorReport,
@@ -34,6 +35,7 @@ import {
   getAnalyticsDashboard,
   getRawAnalytics
 } from "./routes/analytics";
+import { getGuidance } from "./routes/guidance";
 
 export function createServer() {
   const app = express();
@@ -65,6 +67,7 @@ export function createServer() {
   app.get("/api/timetable/:studentId/upcoming", getUpcomingCourses);
 
   // Phase 3: Emergency SOS Routes
+  app.get("/api/emergency/contacts", getEmergencyContacts);
   app.post("/api/emergency/sos", triggerSOS);
   app.post("/api/emergency/sos/:sosId/location", updateSOSLocation);
   app.get("/api/emergency/sos/:sosId", getSOSStatus);
@@ -86,6 +89,9 @@ export function createServer() {
   app.post("/api/analytics/search", trackSearch);
   app.get("/api/analytics/dashboard", getAnalyticsDashboard);
   app.get("/api/analytics/raw", getRawAnalytics);
+
+  // Phase 3: Guidance Routes (Freshers Mode)
+  app.get("/api/guidance", getGuidance);
 
   return app;
 }

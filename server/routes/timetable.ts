@@ -132,6 +132,7 @@ export const deleteCourse: RequestHandler = async (req, res) => {
 /**
  * POST /api/timetable/:studentId/reminder
  * Check if student should leave for class and get route info
+ * TODO: Use real routing service (Mapbox/OSRM) for accurate travel time calculation
  */
 export const getRouteReminder: RequestHandler = async (req, res) => {
   try {
@@ -150,16 +151,24 @@ export const getRouteReminder: RequestHandler = async (req, res) => {
       return;
     }
 
-    // Mock calculation of travel time
-    // In production, this would use actual navigation data
-    const mockVenueCoordinates = {
-      lat: 7.3050,
-      lng: 5.1350
+    // Get actual venue coordinates from locations table
+    const { data: location } = await supabase
+      .from("locations")
+      .select("coordinates")
+      .ilike("name", `%${course.venue}%`)
+      .limit(1)
+      .single()
+      .catch(() => ({ data: null }));
+
+    // Fall back to FUTA center if venue not found
+    const venueCoordinates = location?.coordinates || {
+      lat: 7.3000,
+      lng: 5.1300
     };
 
     const distance = Math.sqrt(
-      Math.pow(mockVenueCoordinates.lat - latitude, 2) +
-      Math.pow(mockVenueCoordinates.lng - longitude, 2)
+      Math.pow(venueCoordinates.lat - latitude, 2) +
+      Math.pow(venueCoordinates.lng - longitude, 2)
     ) * 111000; // rough conversion to meters
 
     const estimatedTravelTime = Math.round(distance / 1.4); // assuming 1.4 m/s walking speed

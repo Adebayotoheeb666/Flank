@@ -7,54 +7,19 @@ import { useAnalytics } from "@/hooks/use-analytics";
 import {
   Volume2, MapPin, Compass, ChevronRight, ChevronLeft,
   TreeDeciduous, Building2, AlertCircle, Phone, X,
-  Play, Pause, SkipForward, SkipBack, Home
+  Play, Pause, SkipForward, SkipBack, Home, Loader
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
-// Landmark-based guidance system
-const GUIDANCE_SEQUENCE = [
-  {
-    id: 1,
-    instruction: "Start at the Main Gate",
-    landmark: "The big red gate with FUTA signage",
-    action: "Walk straight ahead towards the clock tower",
-    distance: "200m",
-    tips: ["Look for the FUTA banner", "Avoid vehicles during peak hours"]
-  },
-  {
-    id: 2,
-    instruction: "Pass the Big Mango Tree",
-    landmark: "A large ancient mango tree on your left",
-    action: "Continue straight, the tree should be on your left side",
-    distance: "150m",
-    tips: ["Many students rest under this tree", "Great landmark for orientation"]
-  },
-  {
-    id: 3,
-    instruction: "Turn right at the Clock Tower",
-    landmark: "The iconic white clock tower at the campus center",
-    action: "Make a sharp right turn",
-    distance: "100m",
-    tips: ["This is the campus landmark", "Perfect place for photos"]
-  },
-  {
-    id: 4,
-    instruction: "Head towards Senate Building",
-    landmark: "A large administrative building ahead",
-    action: "Walk straight until you see the Senate Building",
-    distance: "250m",
-    tips: ["This is the administrative center", "Most student services are here"]
-  },
-  {
-    id: 5,
-    instruction: "Arrival at Destination",
-    landmark: "You have arrived",
-    action: "Check in with the reception",
-    distance: "0m",
-    tips: ["Welcome to FUTA!", "Ask staff for further directions if needed"]
-  }
-];
+interface GuidanceStep {
+  id: number;
+  instruction: string;
+  landmark: string;
+  action: string;
+  distance: string;
+  tips: string[];
+}
 
 export default function FreshersPage() {
   // Track page analytics
@@ -64,6 +29,8 @@ export default function FreshersPage() {
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
+  const [guidanceSequence, setGuidanceSequence] = useState<GuidanceStep[]>([]);
+  const [loadingGuidance, setLoadingGuidance] = useState(true);
   const synth = useRef<SpeechSynthesis | null>(null);
 
   // Initialize speech synthesis
@@ -71,6 +38,27 @@ export default function FreshersPage() {
     if (typeof window !== "undefined") {
       synth.current = window.speechSynthesis;
     }
+  }, []);
+
+  // Fetch guidance sequence from API
+  useEffect(() => {
+    const fetchGuidance = async () => {
+      try {
+        setLoadingGuidance(true);
+        const response = await fetch("/api/guidance");
+        if (response.ok) {
+          const data = await response.json();
+          setGuidanceSequence(data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch guidance:", error);
+        setGuidanceSequence([]);
+      } finally {
+        setLoadingGuidance(false);
+      }
+    };
+
+    fetchGuidance();
   }, []);
 
   const playVoiceGuidance = (text: string) => {
@@ -92,20 +80,21 @@ export default function FreshersPage() {
     if (!completedSteps.includes(currentStep)) {
       setCompletedSteps([...completedSteps, currentStep]);
     }
-    if (currentStep < GUIDANCE_SEQUENCE.length - 1) {
+    if (currentStep < guidanceSequence.length - 1) {
       setCurrentStep(currentStep + 1);
-      playVoiceGuidance(GUIDANCE_SEQUENCE[currentStep + 1].instruction);
+      playVoiceGuidance(guidanceSequence[currentStep + 1].instruction);
     }
   };
 
   const handlePlayVoice = () => {
-    const current = GUIDANCE_SEQUENCE[currentStep];
+    const current = guidanceSequence[currentStep];
+    if (!current) return;
     const fullText = `${current.instruction}. ${current.action}. ${current.landmark}`;
     playVoiceGuidance(fullText);
   };
 
-  const step = GUIDANCE_SEQUENCE[currentStep];
-  const progress = ((currentStep + 1) / GUIDANCE_SEQUENCE.length) * 100;
+  const step = guidanceSequence[currentStep];
+  const progress = guidanceSequence.length > 0 ? ((currentStep + 1) / guidanceSequence.length) * 100 : 0;
 
   return (
     <Layout>
@@ -122,21 +111,32 @@ export default function FreshersPage() {
           </p>
         </div>
 
+        {/* Loading State */}
+        {loadingGuidance && (
+          <div className="text-center py-12">
+            <Loader className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+            <p className="text-muted-foreground">Loading guidance...</p>
+          </div>
+        )}
+
         {/* Progress Bar */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">Progress</span>
-            <span className="text-sm text-muted-foreground">{currentStep + 1} of {GUIDANCE_SEQUENCE.length}</span>
+        {!loadingGuidance && guidanceSequence.length > 0 && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Progress</span>
+              <span className="text-sm text-muted-foreground">{currentStep + 1} of {guidanceSequence.length}</span>
+            </div>
+            <div className="w-full bg-secondary rounded-full h-2">
+              <div
+                className="bg-primary h-2 rounded-full transition-all duration-500"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
           </div>
-          <div className="w-full bg-secondary rounded-full h-2">
-            <div
-              className="bg-primary h-2 rounded-full transition-all duration-500"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        </div>
+        )}
 
         {/* Main Guidance Card */}
+        {!loadingGuidance && guidanceSequence.length > 0 && (
         <div className="grid md:grid-cols-2 gap-8">
           {/* Landmark Visualization */}
           <Card className="p-8 flex flex-col justify-between min-h-[400px]">
@@ -297,13 +297,14 @@ export default function FreshersPage() {
             </Card>
           </div>
         </div>
+        )}
 
         {/* Completed Steps Overview */}
-        {completedSteps.length > 0 && (
+        {!loadingGuidance && completedSteps.length > 0 && (
           <Card className="p-8 space-y-4">
             <h3 className="font-bold text-lg">Completed Steps</h3>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-              {GUIDANCE_SEQUENCE.map((s, idx) => (
+              {guidanceSequence.map((s, idx) => (
                 <button
                   key={s.id}
                   onClick={() => setCurrentStep(idx)}
