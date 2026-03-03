@@ -98,3 +98,40 @@ export interface FreshersGuideStep {
   distance: string;
   tips: string[];
 }
+
+// Phase 4: Offline Resilience
+export interface CachedLocation {
+  id: string;
+  latitude: number;
+  longitude: number;
+  accuracy: number;
+  timestamp: number;
+  altitude?: number;
+  heading?: number;
+  speed?: number;
+}
+
+export interface LocationTrajectory {
+  lat: number;
+  lng: number;
+  timestamp: number;
+}
+
+export interface ProximityAlert {
+  id: string;
+  targetLat: number;
+  targetLng: number;
+  radiusMeters: number;
+  reached: boolean;
+}
+
+export interface PWACacheInfo {
+  name: string;
+  count: number;
+}
+
+export interface StorageQuota {
+  quota: number;
+  usage: number;
+  percentage: number;
+}
