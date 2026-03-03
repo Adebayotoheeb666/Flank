@@ -2,11 +2,19 @@ import { NavNode, NavEdge, Graph, RouteStep, RouteResponse } from "../../shared/
 import fs from "fs/promises";
 import path from "path";
 
+interface PriorityNode {
+  id: string;
+  priority: number;
+}
+
 export class NavigationService {
   private graph: Graph;
+  private nodeCache: Map<string, NavNode> = new Map();
 
   constructor(graph: Graph) {
     this.graph = graph;
+    // Build cache for faster lookups
+    graph.nodes.forEach(node => this.nodeCache.set(node.id, node));
   }
 
   static async load(): Promise<NavigationService> {
@@ -15,67 +23,129 @@ export class NavigationService {
     return new NavigationService(JSON.parse(data));
   }
 
-  // Basic Dijkstra implementation
+  // Heuristic distance for A* algorithm
+  private heuristic(from: NavNode, to: NavNode): number {
+    const latDiff = from.lat - to.lat;
+    const lngDiff = from.lng - to.lng;
+    // Use haversine-like approximation at FUTA's latitude
+    const earthRadiusM = 6371000;
+    const latRad = (Math.PI / 180) * ((from.lat + to.lat) / 2);
+    const lngMetersPerDegree = earthRadiusM * Math.cos(latRad) * (Math.PI / 180);
+    const latMetersPerDegree = earthRadiusM * (Math.PI / 180);
+
+    return Math.sqrt(
+      Math.pow(latDiff * latMetersPerDegree, 2) +
+      Math.pow(lngDiff * lngMetersPerDegree, 2)
+    );
+  }
+
+  // A* implementation for optimal pathfinding
+  private calculateCost(
+    distance: number,
+    elevationGain: number,
+    preferFlat: boolean
+  ): number {
+    let cost = distance;
+
+    if (preferFlat && elevationGain > 0) {
+      // Penalize uphill more heavily when preferring flat routes
+      // Formula: base distance + (elevation gain * weight factor)
+      const elevationWeight = 15; // Each meter of elevation = 15m of distance penalty
+      cost += elevationGain * elevationWeight;
+    }
+
+    return cost;
+  }
+
   calculateRoute(startNodeId: string, endNodeId: string, preferFlat: boolean = false): RouteResponse | null {
-    const dist: Record<string, number> = {};
+    const startNode = this.nodeCache.get(startNodeId);
+    const endNode = this.nodeCache.get(endNodeId);
+
+    if (!startNode || !endNode) return null;
+
+    const gScore: Record<string, number> = {};
+    const fScore: Record<string, number> = {};
     const prev: Record<string, string | null> = {};
-    const nodes = new Set<string>();
+    const openSet = new Set<string>();
 
+    // Initialize scores
     for (const node of this.graph.nodes) {
-      dist[node.id] = Infinity;
+      gScore[node.id] = Infinity;
+      fScore[node.id] = Infinity;
       prev[node.id] = null;
-      nodes.add(node.id);
     }
 
-    dist[startNodeId] = 0;
+    gScore[startNodeId] = 0;
+    fScore[startNodeId] = this.heuristic(startNode, endNode);
+    openSet.add(startNodeId);
 
-    while (nodes.size > 0) {
-      // Find node with minimum distance
-      let u: string | null = null;
-      for (const nodeId of nodes) {
-        if (u === null || dist[nodeId] < dist[u]) {
-          u = nodeId;
+    while (openSet.size > 0) {
+      // Find node with lowest f score
+      let current: string | null = null;
+      let lowestF = Infinity;
+
+      for (const nodeId of openSet) {
+        if (fScore[nodeId] < lowestF) {
+          lowestF = fScore[nodeId];
+          current = nodeId;
         }
       }
 
-      if (u === null || dist[u] === Infinity || u === endNodeId) {
-        break;
-      }
+      if (!current) break;
 
-      nodes.delete(u);
-
-      const neighbors = this.graph.edges.filter(e => e.from === u || e.to === u);
-
-      for (const edge of neighbors) {
-        const v = edge.from === u ? edge.to : edge.from;
-        if (!nodes.has(v)) continue;
-
-        // Hill-awareness weight: add cost for elevation gain if preferFlat is true
-        let cost = edge.distance;
-        if (preferFlat && edge.elevation_gain > 0) {
-          cost += edge.elevation_gain * 10; // Simple heuristic: 1m elevation gain = 10m extra distance cost
+      if (current === endNodeId) {
+        // Reconstruct path
+        const pathIds: string[] = [];
+        let node: string | null = endNodeId;
+        while (node !== null) {
+          pathIds.unshift(node);
+          node = prev[node];
         }
 
-        const alt = dist[u] + cost;
-        if (alt < dist[v]) {
-          dist[v] = alt;
-          prev[v] = u;
+        return this.buildRouteResponse(pathIds);
+      }
+
+      openSet.delete(current);
+      const neighbors = this.getNeighbors(current);
+
+      for (const { edgeId, neighborId, edge } of neighbors) {
+        const tentativeGScore = gScore[current] +
+          this.calculateCost(edge.distance, edge.elevation_gain, preferFlat);
+
+        if (tentativeGScore < gScore[neighborId]) {
+          prev[neighborId] = current;
+          gScore[neighborId] = tentativeGScore;
+
+          const neighborNode = this.nodeCache.get(neighborId)!;
+          fScore[neighborId] = gScore[neighborId] + this.heuristic(neighborNode, endNode);
+
+          if (!openSet.has(neighborId)) {
+            openSet.add(neighborId);
+          }
         }
       }
     }
 
-    // Reconstruct path
-    const pathIds: string[] = [];
-    let curr: string | null = endNodeId;
-    while (curr) {
-      pathIds.unshift(curr);
-      curr = prev[curr];
-    }
+    return null; // No path found
+  }
 
-    if (pathIds[0] !== startNodeId) return null;
+  private getNeighbors(nodeId: string): Array<{ edgeId: string; neighborId: string; edge: NavEdge }> {
+    const neighbors: Array<{ edgeId: string; neighborId: string; edge: NavEdge }> = [];
 
+    this.graph.edges.forEach((edge, idx) => {
+      if (edge.from === nodeId) {
+        neighbors.push({ edgeId: `${idx}`, neighborId: edge.to, edge });
+      } else if (edge.to === nodeId) {
+        neighbors.push({ edgeId: `${idx}`, neighborId: edge.from, edge });
+      }
+    });
+
+    return neighbors;
+  }
+
+  private buildRouteResponse(pathIds: string[]): RouteResponse {
     const pathCoords: [number, number][] = pathIds.map(id => {
-      const node = this.graph.nodes.find(n => n.id === id)!;
+      const node = this.nodeCache.get(id)!;
       return [node.lng, node.lat];
     });
 
@@ -86,29 +156,49 @@ export class NavigationService {
     for (let i = 0; i < pathIds.length - 1; i++) {
       const fromId = pathIds[i];
       const toId = pathIds[i + 1];
-      const edge = this.graph.edges.find(e => 
-        (e.from === fromId && e.to === toId) || 
+
+      const edge = this.graph.edges.find(e =>
+        (e.from === fromId && e.to === toId) ||
         (e.from === toId && e.to === fromId)
-      )!;
+      );
 
-      const toNode = this.graph.nodes.find(n => n.id === toId)!;
-      
-      steps.push({
-        instruction: `Head towards ${toNode.name || toId}`,
-        distance: edge.distance,
-        node_id: toId
-      });
+      if (edge) {
+        const toNode = this.nodeCache.get(toId)!;
+        const instruction = this.generateInstruction(toNode, edge);
 
-      totalDist += edge.distance;
-      totalElevation += edge.elevation_gain;
+        steps.push({
+          instruction,
+          distance: edge.distance,
+          node_id: toId
+        });
+
+        totalDist += edge.distance;
+        totalElevation += edge.elevation_gain;
+      }
     }
 
     return {
       path: pathCoords,
       steps,
       total_distance: totalDist,
-      total_elevation_gain: totalElevation
+      total_elevation_gain: Math.max(0, totalElevation)
     };
+  }
+
+  private generateInstruction(node: NavNode, edge: NavEdge): string {
+    let instruction = `Head towards ${node.name || node.id}`;
+
+    if (edge.is_staircase) {
+      instruction += " (via stairs)";
+    } else if (edge.elevation_gain > 5) {
+      instruction += " (steep uphill)";
+    } else if (edge.elevation_gain > 0) {
+      instruction += " (slight uphill)";
+    } else if (edge.elevation_gain < -5) {
+      instruction += " (steep downhill)";
+    }
+
+    return instruction;
   }
 
   // Find nearest node to given coordinates

@@ -4,23 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { useAnalytics } from "@/hooks/use-analytics";
+import { useAnalytics, trackNavigation } from "@/hooks/use-analytics";
 import {
   Clock, MapPin, Bell, Plus, Trash2, Save, Calendar, AlertCircle,
-  CheckCircle, AlertTriangle, Navigation, Settings, X
+  CheckCircle, AlertTriangle, Navigation, Settings, X, Loader
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-interface Course {
-  id: string;
-  code: string;
-  name: string;
-  venue: string;
-  time: string;
-  day: string;
-  duration: number; // in minutes
-  notificationTime: number; // minutes before class
-}
+import { Course, RouteReminderResponse } from "@shared/api";
 
 interface RouteReminder {
   courseId: string;
@@ -71,6 +61,39 @@ export default function TimetablePage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [reminders, setReminders] = useState<RouteReminder[]>([]);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [loadingReminder, setLoadingReminder] = useState<string | null>(null);
+  const [studentId] = useState("student_demo_user"); // In real app, get from auth
+
+  // Calculate route reminders for upcoming classes
+  const calculateRouteReminder = async (courseId: string, venue: string) => {
+    try {
+      setLoadingReminder(courseId);
+      const response = await fetch(`/api/timetable/${studentId}/reminder`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ courseId, studentId })
+      });
+
+      if (response.ok) {
+        const data: RouteReminderResponse = await response.json();
+        setReminders(prev => [...prev.filter(r => r.courseId !== courseId), {
+          courseId,
+          status: data.shouldLeaveNow ? "in-route" : "upcoming",
+          estimatedTime: data.estimatedTravelTime,
+          distanceMeters: data.distanceMeters
+        }]);
+
+        // Track navigation event
+        if (data.shouldLeaveNow) {
+          trackNavigation(studentId, venue, "route_reminder", data.distanceMeters);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to calculate route reminder:", error);
+    } finally {
+      setLoadingReminder(null);
+    }
+  };
 
   // Simulate route reminders checking
   useEffect(() => {
@@ -336,9 +359,20 @@ export default function TimetablePage() {
                         <Button
                           size="sm"
                           className="gap-2 rounded-lg text-white bg-blue-600 hover:bg-blue-700"
+                          onClick={() => calculateRouteReminder(course.id, course.venue)}
+                          disabled={loadingReminder === course.id}
                         >
-                          <Navigation className="h-4 w-4" />
-                          Navigate
+                          {loadingReminder === course.id ? (
+                            <>
+                              <Loader className="h-4 w-4 animate-spin" />
+                              Calculating...
+                            </>
+                          ) : (
+                            <>
+                              <Navigation className="h-4 w-4" />
+                              Navigate
+                            </>
+                          )}
                         </Button>
                         <Button
                           size="sm"

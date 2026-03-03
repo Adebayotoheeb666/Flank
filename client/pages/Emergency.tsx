@@ -1,19 +1,21 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { useAnalytics } from "@/hooks/use-analytics";
+import { useAnalytics, trackNavigation } from "@/hooks/use-analytics";
 import {
   Phone, Shield, Activity, Flame, ArrowLeft, Navigation,
   MapPin, AlertCircle, Send, Clock, Users, CheckCircle,
-  Share2, AlertTriangle, Loader
+  Share2, AlertTriangle, Loader, Copy
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { SOSTriggerRequest, SOSType } from "@shared/api";
+import { useToast } from "@/hooks/use-toast";
 
 interface EmergencySOSType {
-  id: string;
+  id: SOSType;
   title: string;
   icon: any;
   color: string;
@@ -23,6 +25,7 @@ interface EmergencySOSType {
 export default function EmergencyPage() {
   // Track page analytics
   useAnalytics("emergency");
+  const { toast } = useToast();
 
   const [selectedSOS, setSelectedSOS] = useState<string | null>(null);
   const [isLocationActive, setIsLocationActive] = useState(false);
@@ -30,6 +33,9 @@ export default function EmergencyPage() {
   const [sosActive, setSOSActive] = useState(false);
   const [sosStartTime, setSOSStartTime] = useState<Date | null>(null);
   const [respondersCount, setRespondersCount] = useState(0);
+  const [sosId, setSOSId] = useState<string | null>(null);
+  const [isTriggering, setIsTriggering] = useState(false);
+  const locationWatchId = useRef<number | null>(null);
 
   const sosTypes: EmergencySOSType[] = [
     {
@@ -61,22 +67,45 @@ export default function EmergencyPage() {
     { title: "Fire Service", phone: "0803-456-7890", icon: Flame, color: "bg-orange-600" },
   ];
 
-  // Get user location
+  // Get user location and update to server
   useEffect(() => {
     if (isLocationActive && navigator.geolocation) {
-      const watchId = navigator.geolocation.watchPosition(
-        (position) => {
-          setUserLocation({
+      locationWatchId.current = navigator.geolocation.watchPosition(
+        async (position) => {
+          const newLocation = {
             lat: position.coords.latitude,
             lng: position.coords.longitude,
-          });
+          };
+          setUserLocation(newLocation);
+
+          // Update location on server if SOS is active
+          if (sosActive && sosId) {
+            try {
+              await fetch(`/api/emergency/sos/${sosId}/location`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  sosId,
+                  latitude: newLocation.lat,
+                  longitude: newLocation.lng,
+                  timestamp: new Date().toISOString()
+                })
+              });
+            } catch (error) {
+              console.error("Failed to update location:", error);
+            }
+          }
         },
         (error) => console.error("Location error:", error)
       );
 
-      return () => navigator.geolocation.clearWatch(watchId);
+      return () => {
+        if (locationWatchId.current !== null) {
+          navigator.geolocation.clearWatch(locationWatchId.current);
+        }
+      };
     }
-  }, [isLocationActive]);
+  }, [isLocationActive, sosActive, sosId]);
 
   // Simulate responder arrival
   useEffect(() => {
@@ -89,22 +118,90 @@ export default function EmergencyPage() {
     }
   }, [sosActive]);
 
-  const triggerSOS = (sosTypeId: string) => {
-    setSelectedSOS(sosTypeId);
-    setSOSActive(true);
-    setSOSStartTime(new Date());
-    setIsLocationActive(true);
+  const triggerSOS = async (sosTypeId: string) => {
+    if (!userLocation) {
+      toast({
+        title: "Location Required",
+        description: "Please enable location services to trigger SOS",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    // In a real app, this would trigger API call to Supabase
-    console.log(`SOS triggered for: ${sosTypeId}`);
+    try {
+      setIsTriggering(true);
+      const sosRequest: SOSTriggerRequest = {
+        sosType: sosTypeId as SOSType,
+        latitude: userLocation.lat,
+        longitude: userLocation.lng,
+        userId: "student_demo_user" // In real app, get from auth
+      };
+
+      const response = await fetch("/api/emergency/sos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(sosRequest)
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to trigger SOS");
+      }
+
+      const data = await response.json();
+      setSOSId(data.sosId);
+      setSelectedSOS(sosTypeId);
+      setSOSActive(true);
+      setSOSStartTime(new Date());
+      setIsLocationActive(true);
+
+      // Track emergency event
+      trackNavigation("current_location", sosTypeId, "emergency_sos", 0);
+
+      toast({
+        title: "SOS Triggered",
+        description: "Responders have been notified of your emergency",
+        variant: "default",
+      });
+    } catch (error) {
+      console.error("SOS trigger error:", error);
+      toast({
+        title: "Error",
+        description: "Failed to trigger SOS. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsTriggering(false);
+    }
   };
 
-  const cancelSOS = () => {
+  const cancelSOS = async () => {
+    if (sosId) {
+      try {
+        await fetch(`/api/emergency/sos/${sosId}/cancel`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sosId })
+        });
+      } catch (error) {
+        console.error("Failed to cancel SOS:", error);
+      }
+    }
     setSOSActive(false);
     setSelectedSOS(null);
     setSOSStartTime(null);
     setRespondersCount(0);
     setIsLocationActive(false);
+    setSOSId(null);
+  };
+
+  const copySosId = () => {
+    if (sosId) {
+      navigator.clipboard.writeText(sosId);
+      toast({
+        title: "Copied",
+        description: "SOS ID copied to clipboard",
+      });
+    }
   };
 
   const getCurrentSOSType = () => sosTypes.find(sos => sos.id === selectedSOS);
@@ -191,6 +288,19 @@ export default function EmergencyPage() {
                   </p>
                   <p className="text-xs text-muted-foreground mt-2">Elapsed time</p>
                 </div>
+                {sosId && (
+                  <div className="flex items-center gap-2 p-2 bg-white rounded border border-purple-200">
+                    <span className="text-xs text-muted-foreground flex-1">ID: {sosId.substring(0, 8)}...</span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={copySosId}
+                      className="h-6 w-6 p-0"
+                    >
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                  </div>
+                )}
               </div>
             </Card>
           </div>
@@ -266,17 +376,27 @@ export default function EmergencyPage() {
                 <button
                   key={sos.id}
                   onClick={() => triggerSOS(sos.id)}
+                  disabled={isTriggering || !userLocation}
                   className={cn(
-                    "p-8 rounded-3xl text-white font-bold text-lg group hover:-translate-y-1 transition-all shadow-xl border-2 border-transparent",
+                    "p-8 rounded-3xl text-white font-bold text-lg group hover:-translate-y-1 transition-all shadow-xl border-2 border-transparent disabled:opacity-50 disabled:cursor-not-allowed",
                     sos.color,
                     "space-y-4 flex flex-col items-center justify-center min-h-[300px]"
                   )}
                 >
-                  <IconComponent className="h-16 w-16 group-hover:scale-110 transition-transform" />
-                  <div className="space-y-2 text-center">
-                    <p className="text-xl font-extrabold">{sos.title}</p>
-                    <p className="text-sm font-medium opacity-90">{sos.description}</p>
-                  </div>
+                  {isTriggering ? (
+                    <>
+                      <Loader className="h-16 w-16 animate-spin" />
+                      <p className="text-lg font-extrabold">Triggering...</p>
+                    </>
+                  ) : (
+                    <>
+                      <IconComponent className="h-16 w-16 group-hover:scale-110 transition-transform" />
+                      <div className="space-y-2 text-center">
+                        <p className="text-xl font-extrabold">{sos.title}</p>
+                        <p className="text-sm font-medium opacity-90">{sos.description}</p>
+                      </div>
+                    </>
+                  )}
                 </button>
               );
             })}

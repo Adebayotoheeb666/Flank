@@ -1,4 +1,4 @@
-import { MapPin, Navigation, Compass, Phone, Search, Bell, Clock, Info, Shield, GraduationCap, Building2, Utensils, Landmark, CreditCard, Activity } from "lucide-react";
+import { MapPin, Navigation, Compass, Phone, Search, Bell, Clock, Info, Shield, GraduationCap, Building2, Utensils, Landmark, CreditCard, Activity, TrendingUp, AlertTriangle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -213,6 +213,56 @@ export default function Index() {
               </Button>
             </Link>
           </div>
+        </div>
+      </section>
+
+      {/* Community Feedback Section */}
+      <section className="bg-gradient-to-br from-orange-50 to-red-50 py-24 border-t">
+        <div className="container space-y-12">
+          <div className="text-center space-y-4">
+            <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight text-orange-900">
+              Help Us Improve
+            </h2>
+            <p className="text-orange-700 max-w-2xl mx-auto text-lg">
+              Found an error on the map? Missing building? Tell us! Your feedback helps us build a more accurate and useful navigation tool for everyone.
+            </p>
+          </div>
+          <div className="grid md:grid-cols-2 gap-6 max-w-2xl mx-auto">
+            <Link to="/community/reports">
+              <button className="bg-white p-8 rounded-2xl text-center space-y-3 hover:shadow-lg transition-all border-2 border-orange-200 group w-full">
+                <AlertTriangle className="h-8 w-8 text-orange-600 mx-auto group-hover:scale-110 transition-transform" />
+                <h3 className="font-bold text-lg text-orange-900">Report an Issue</h3>
+                <p className="text-sm text-orange-700">Help us fix map errors and navigation problems</p>
+              </button>
+            </Link>
+            <Link to="/community/reports">
+              <button className="bg-white p-8 rounded-2xl text-center space-y-3 hover:shadow-lg transition-all border-2 border-orange-200 group w-full">
+                <TrendingUp className="h-8 w-8 text-orange-600 mx-auto group-hover:scale-110 transition-transform" />
+                <h3 className="font-bold text-lg text-orange-900">View Reports</h3>
+                <p className="text-sm text-orange-700">See what issues are being tracked and fixed</p>
+              </button>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Analytics & Admin */}
+      <section className="container py-24">
+        <div className="text-center space-y-4 mb-12">
+          <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight text-primary">
+            Campus Insights
+          </h2>
+          <p className="text-muted-foreground max-w-2xl mx-auto text-lg">
+            Discover the most visited locations and popular navigation patterns on campus.
+          </p>
+        </div>
+        <div className="max-w-2xl mx-auto">
+          <Link to="/admin/analytics">
+            <Button size="lg" className="w-full h-14 rounded-xl font-bold text-lg gap-2">
+              <Info className="h-5 w-5" />
+              View Analytics Dashboard
+            </Button>
+          </Link>
         </div>
       </section>
 

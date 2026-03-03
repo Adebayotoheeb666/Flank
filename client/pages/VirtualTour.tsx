@@ -6,10 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { useAnalytics } from "@/hooks/use-analytics";
 import {
   ChevronLeft, ChevronRight, MapPin, Users, BookOpen, Clock,
-  Star, Building2, ArrowLeft, Info, ImagePlay
+  Star, Building2, ArrowLeft, Info, ImagePlay, Play, Volume2, X, RotateCw
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
+import PanoramaViewer from "@/components/PanoramaViewer";
 
 interface Building {
   id: string;
@@ -18,6 +19,8 @@ interface Building {
   category: "school" | "admin" | "facility" | "landmark";
   image: string;
   images: string[];
+  panoramaImage?: string; // 360° panorama image
+  videoUrl?: string; // Tour video URL
   description: string;
   history: string;
   academicDepts: string[];
@@ -40,6 +43,7 @@ const CAMPUS_BUILDINGS: Building[] = [
       "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&q=80&w=800",
       "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&q=80&w=800"
     ],
+    panoramaImage: "https://images.unsplash.com/photo-1516321318423-f06c41e504b3?auto=format&fit=crop&q=80&w=2000",
     description: "The main hub for electrical engineering and technology programs at FUTA. State-of-the-art laboratories and classrooms.",
     history: "Established as part of FUTA's founding vision to create a center of excellence in technology education. The SEET building has produced generations of innovative engineers.",
     academicDepts: ["Electrical Engineering", "Electronic Engineering", "Telecommunications Engineering"],
@@ -59,6 +63,7 @@ const CAMPUS_BUILDINGS: Building[] = [
       "https://images.unsplash.com/photo-1494783367193-149034c05e41?auto=format&fit=crop&q=80&w=800",
       "https://images.unsplash.com/photo-1574943320219-553eb213f72d?auto=format&fit=crop&q=80&w=800"
     ],
+    panoramaImage: "https://images.unsplash.com/photo-1494783367193-149034c05e41?auto=format&fit=crop&q=80&w=2000",
     description: "Focus on agricultural science, technology, and sustainable farming practices. Features modern farming facilities.",
     history: "SAAT promotes agricultural research and innovation to address food security challenges in Nigeria and Africa.",
     academicDepts: ["Agricultural Engineering", "Agronomy", "Soil Science", "Agricultural Economics"],
@@ -78,6 +83,7 @@ const CAMPUS_BUILDINGS: Building[] = [
       "https://images.unsplash.com/photo-1573495627361-c0127efd3481?auto=format&fit=crop&q=80&w=800",
       "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&q=80&w=800"
     ],
+    panoramaImage: "https://images.unsplash.com/photo-1573495627361-c0127efd3481?auto=format&fit=crop&q=80&w=2000",
     description: "The administrative heart of FUTA where major university decisions are made. Houses the Office of the Vice-Chancellor.",
     history: "The Senate Building is the symbol of FUTA's governance and academic authority. It hosted countless important decisions shaping the university's future.",
     academicDepts: ["Vice-Chancellor's Office", "Registrar's Office", "Bursary", "Academic Affairs"],
@@ -96,6 +102,7 @@ const CAMPUS_BUILDINGS: Building[] = [
       "https://images.unsplash.com/photo-1507842721343-583f20270319?auto=format&fit=crop&q=80&w=800",
       "https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?auto=format&fit=crop&q=80&w=800"
     ],
+    panoramaImage: "https://images.unsplash.com/photo-1507842721343-583f20270319?auto=format&fit=crop&q=80&w=2000",
     description: "A comprehensive resource center with thousands of books, journals, and digital materials. The intellectual hub of the campus.",
     history: "The library was founded to support academic excellence with one of the most comprehensive collections in Nigeria.",
     academicDepts: ["Reference Section", "Research Wing", "Digital Resources", "Special Collections"],
@@ -115,6 +122,7 @@ const CAMPUS_BUILDINGS: Building[] = [
       "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&q=80&w=800",
       "https://images.unsplash.com/photo-1540575467063-178cb50ee898?auto=format&fit=crop&q=80&w=800"
     ],
+    panoramaImage: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&q=80&w=2000",
     description: "A state-of-the-art auditorium hosting lectures, seminars, conferences, and cultural events for up to 2000 people.",
     history: "Built to provide a world-class venue for academic and cultural programs, the auditorium has hosted prominent speakers and national events.",
     academicDepts: ["Events & Conferences", "Lecture Series", "Cultural Programs"],
@@ -127,8 +135,12 @@ const CAMPUS_BUILDINGS: Building[] = [
 ];
 
 export default function VirtualTourPage() {
+  useAnalytics("virtual_tour");
+
   const [selectedBuilding, setSelectedBuilding] = useState<Building>(CAMPUS_BUILDINGS[0]);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [viewMode, setViewMode] = useState<"gallery" | "panorama">("gallery");
+  const [showVideo, setShowVideo] = useState(false);
 
   const handlePrevImage = () => {
     setCurrentImageIndex((prev) =>
@@ -174,34 +186,84 @@ export default function VirtualTourPage() {
         {/* Main Tour Section */}
         <div className="container py-12 space-y-8">
           <div className="grid lg:grid-cols-3 gap-8">
-            {/* Image Viewer */}
+            {/* Media Viewer */}
             <div className="lg:col-span-2 space-y-4">
-              <Card className="overflow-hidden aspect-video bg-slate-900 relative group">
-                <img
-                  src={selectedBuilding.images[currentImageIndex]}
-                  alt={selectedBuilding.name}
-                  className="w-full h-full object-cover"
+              {/* View Mode Tabs */}
+              <div className="flex gap-2">
+                <Button
+                  variant={viewMode === "gallery" ? "default" : "outline"}
+                  onClick={() => setViewMode("gallery")}
+                  className="rounded-lg"
+                >
+                  <ImagePlay className="h-4 w-4 mr-2" />
+                  Gallery
+                </Button>
+                {selectedBuilding.panoramaImage && (
+                  <Button
+                    variant={viewMode === "panorama" ? "default" : "outline"}
+                    onClick={() => setViewMode("panorama")}
+                    className="rounded-lg"
+                  >
+                    <RotateCw className="h-4 w-4 mr-2" />
+                    360° View
+                  </Button>
+                )}
+              </div>
+
+              {/* Video Player or Image Viewer */}
+              {showVideo ? (
+                <Card className="overflow-hidden aspect-video bg-black relative">
+                  <div className="relative w-full h-full flex items-center justify-center bg-black">
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <video
+                        controls
+                        className="w-full h-full object-contain"
+                        src="https://commondatastorage.googleapis.com/gtv-videos-library/sample/BigBuckBunny.mp4"
+                      />
+                    </div>
+                  </div>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => setShowVideo(false)}
+                    className="absolute top-4 right-4 bg-black/50 hover:bg-black/75 text-white rounded-full"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </Card>
+              ) : viewMode === "panorama" && selectedBuilding.panoramaImage ? (
+                <PanoramaViewer
+                  imageUrl={selectedBuilding.panoramaImage}
+                  title={`${selectedBuilding.shortName} - 360° View`}
                 />
+              ) : (
+                <Card className="overflow-hidden aspect-video bg-slate-900 relative group">
+                  <img
+                    src={selectedBuilding.images[currentImageIndex]}
+                    alt={selectedBuilding.name}
+                    className="w-full h-full object-cover"
+                  />
 
-                {/* Image Navigation */}
-                <button
-                  onClick={handlePrevImage}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/75 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <ChevronLeft className="h-6 w-6" />
-                </button>
-                <button
-                  onClick={handleNextImage}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/75 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <ChevronRight className="h-6 w-6" />
-                </button>
+                  {/* Image Navigation */}
+                  <button
+                    onClick={handlePrevImage}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/75 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <ChevronLeft className="h-6 w-6" />
+                  </button>
+                  <button
+                    onClick={handleNextImage}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/75 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <ChevronRight className="h-6 w-6" />
+                  </button>
 
-                {/* Image Counter */}
-                <div className="absolute bottom-4 right-4 bg-black/50 text-white px-3 py-1 rounded-full text-sm font-medium">
-                  {currentImageIndex + 1} / {selectedBuilding.images.length}
-                </div>
-              </Card>
+                  {/* Image Counter */}
+                  <div className="absolute bottom-4 right-4 bg-black/50 text-white px-3 py-1 rounded-full text-sm font-medium">
+                    {currentImageIndex + 1} / {selectedBuilding.images.length}
+                  </div>
+                </Card>
+              )}
 
               {/* Building Overview */}
               <Card className="p-8 space-y-6">
@@ -301,9 +363,22 @@ export default function VirtualTourPage() {
                   </div>
                 </div>
 
-                {/* Navigate to Map */}
-                <div className="border-t pt-6 flex gap-3">
-                  <Link to={`/map?building=${selectedBuilding.id}`} className="flex-1">
+                {/* Action Buttons */}
+                <div className="border-t pt-6 space-y-3">
+                  {/* Video Tour */}
+                  {selectedBuilding.videoUrl && (
+                    <Button
+                      onClick={() => setShowVideo(true)}
+                      variant="outline"
+                      className="w-full h-11 rounded-lg gap-2"
+                    >
+                      <Play className="h-5 w-5" />
+                      Watch Video Tour
+                    </Button>
+                  )}
+
+                  {/* Navigate to Map */}
+                  <Link to={`/map?building=${selectedBuilding.id}`} className="block">
                     <Button className="w-full h-11 rounded-lg gap-2">
                       <MapPin className="h-5 w-5" />
                       Navigate on Map
