@@ -14,6 +14,7 @@ import AnalyticsPage from "./pages/Analytics";
 import EmergencyPage from "./pages/Emergency";
 import FreshersPage from "./pages/Freshers";
 import TimetablePage from "./pages/Timetable";
+import CommunityReportingPage from "./pages/CommunityReporting";
 import NotFound from "./pages/NotFound";
 import OfflineIndicator from "@/components/OfflineIndicator";
 import { registerServiceWorker, requestPersistentStorage } from "@/lib/service-worker";
@@ -63,6 +64,7 @@ const App = () => {
             <Route path="/tour" element={<VirtualTourPage />} />
             <Route path="/admin/analytics" element={<AnalyticsPage />} />
             <Route path="/emergency" element={<EmergencyPage />} />
+            <Route path="/community/reports" element={<CommunityReportingPage />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
