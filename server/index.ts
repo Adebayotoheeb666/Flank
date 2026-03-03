@@ -19,6 +19,21 @@ import {
   cancelSOSAlert,
   getActiveSOS
 } from "./routes/emergency";
+import {
+  submitErrorReport,
+  getErrorReports,
+  getErrorReport,
+  updateErrorReport,
+  deleteErrorReport
+} from "./routes/error-reports";
+import {
+  trackPageView,
+  trackPageExit,
+  trackNavigation,
+  trackSearch,
+  getAnalyticsDashboard,
+  getRawAnalytics
+} from "./routes/analytics";
 
 export function createServer() {
   const app = express();
@@ -56,6 +71,21 @@ export function createServer() {
   app.post("/api/emergency/sos/:sosId/resolve", resolveSOSAlert);
   app.post("/api/emergency/sos/:sosId/cancel", cancelSOSAlert);
   app.get("/api/emergency/active", getActiveSOS);
+
+  // Phase 6: Error Reporting Routes
+  app.post("/api/error-reports", submitErrorReport);
+  app.get("/api/error-reports", getErrorReports);
+  app.get("/api/error-reports/:reportId", getErrorReport);
+  app.patch("/api/error-reports/:reportId", updateErrorReport);
+  app.delete("/api/error-reports/:reportId", deleteErrorReport);
+
+  // Phase 6: Analytics Routes
+  app.post("/api/analytics/page-view", trackPageView);
+  app.post("/api/analytics/page-exit", trackPageExit);
+  app.post("/api/analytics/navigation", trackNavigation);
+  app.post("/api/analytics/search", trackSearch);
+  app.get("/api/analytics/dashboard", getAnalyticsDashboard);
+  app.get("/api/analytics/raw", getRawAnalytics);
 
   return app;
 }

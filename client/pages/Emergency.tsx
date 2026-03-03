@@ -3,6 +3,7 @@ import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { useAnalytics } from "@/hooks/use-analytics";
 import {
   Phone, Shield, Activity, Flame, ArrowLeft, Navigation,
   MapPin, AlertCircle, Send, Clock, Users, CheckCircle,
@@ -20,6 +21,9 @@ interface EmergencySOSType {
 }
 
 export default function EmergencyPage() {
+  // Track page analytics
+  useAnalytics("emergency");
+
   const [selectedSOS, setSelectedSOS] = useState<string | null>(null);
   const [isLocationActive, setIsLocationActive] = useState(false);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);

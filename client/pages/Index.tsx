@@ -5,8 +5,12 @@ import { Input } from "@/components/ui/input";
 import Layout from "@/components/Layout";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { useAnalytics } from "@/hooks/use-analytics";
 
 export default function Index() {
+  // Track page analytics
+  useAnalytics("index");
+
   const [searchQuery, setSearchQuery] = useState("");
 
   const quickLinks = [

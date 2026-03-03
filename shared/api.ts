@@ -135,3 +135,71 @@ export interface StorageQuota {
   usage: number;
   percentage: number;
 }
+
+// Phase 6: Community Error Reporting
+export interface MapErrorReport {
+  id?: string;
+  type: "incorrect_location" | "missing_building" | "outdated_info" | "navigation_issue" | "other";
+  title: string;
+  description: string;
+  location?: {
+    lat: number;
+    lng: number;
+  };
+  affectedBuilding?: string;
+  userContact?: string;
+  severity: "low" | "medium" | "high";
+  status?: "reported" | "reviewed" | "resolved" | "dismissed";
+  createdAt?: string;
+  resolvedAt?: string;
+  resolution?: string;
+}
+
+export interface MapErrorReportResponse {
+  reportId: string;
+  status: "submitted" | "error";
+  message: string;
+}
+
+export interface ErrorReportListResponse {
+  reports: MapErrorReport[];
+  total: number;
+  resolved: number;
+}
+
+// Phase 6: Analytics Tracking
+export interface PageViewEvent {
+  id?: string;
+  page: string;
+  timestamp?: string;
+  duration?: number;
+  userId?: string;
+}
+
+export interface NavigationEvent {
+  id?: string;
+  from: string;
+  to: string;
+  timestamp?: string;
+  distanceMeters?: number;
+  duration?: number;
+  method: "user_search" | "map_click" | "recommendation";
+}
+
+export interface DestinationAnalytics {
+  buildingId: string;
+  buildingName: string;
+  visitCount: number;
+  navigationCount: number;
+  averageTimeSpent?: number;
+  popularity: "high" | "medium" | "low";
+}
+
+export interface AnalyticsDashboard {
+  totalPageViews: number;
+  totalNavigations: number;
+  mostVisitedDestinations: DestinationAnalytics[];
+  averageSessionDuration: number;
+  uniqueVisitors: number;
+  topSearchQueries: { query: string; count: number }[];
+}
