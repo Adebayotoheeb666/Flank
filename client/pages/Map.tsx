@@ -158,7 +158,10 @@ export default function MapPage() {
         })
       });
 
-      if (!response.ok) throw new Error("Failed to calculate route");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Failed to calculate route (${response.status})`);
+      }
 
       const data: RouteResponse = await response.json();
       setRoute(data);

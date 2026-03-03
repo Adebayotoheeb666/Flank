@@ -1,6 +1,7 @@
 import { RequestHandler } from "express";
 import { NavigationService } from "../lib/navigation";
 import { RouteRequest } from "../../shared/navigation";
+import { supabase } from "../../shared/supabase";
 
 export const handleRouteRequest: RequestHandler = async (req, res) => {
   try {
@@ -11,14 +12,24 @@ export const handleRouteRequest: RequestHandler = async (req, res) => {
       return;
     }
 
+    // Fetch the destination location from Supabase to get its coordinates
+    const { data: location, error: locError } = await supabase
+      .from("locations")
+      .select("coordinates")
+      .eq("id", end_location_id)
+      .single();
+
+    if (locError || !location) {
+      res.status(404).json({ error: "Location not found" });
+      return;
+    }
+
     const navService = await NavigationService.load();
 
-    // Map the target building location to our navigation graph nodes
-    // For now, mapping some known IDs from our seed data or manually
-    // In a real app, this would be more dynamic.
-    const endNodeId = end_location_id; // For simplicity, assume they match our node IDs for now.
-
+    // Find nearest nodes for both start and end locations
     const startNodeId = navService.findNearestNode(start_lat, start_lng);
+    const endNodeId = navService.findNearestNode(location.coordinates.lat, location.coordinates.lng);
+
     const route = navService.calculateRoute(startNodeId, endNodeId, prefer_flat);
 
     if (!route) {
