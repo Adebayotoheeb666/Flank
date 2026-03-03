@@ -1,20 +1,7 @@
 import { RequestHandler } from "express";
 import { SOSResponse, SOSTriggerRequest, LocationShareUpdate } from "@shared/api";
+import { supabase } from "../../shared/supabase";
 
-// Mock database for active SOS alerts
-interface ActiveSOS {
-  sosId: string;
-  sosType: string;
-  userId: string;
-  latitude: number;
-  longitude: number;
-  status: "active" | "resolved" | "cancelled";
-  createdAt: Date;
-  lastLocationUpdate: Date;
-  respondersNotified: string[];
-}
-
-const activeSOS: Map<string, ActiveSOS> = new Map();
 const sosResponders = {
   medical: { name: "FUTA Health Centre", eta: 180 },
   fire: { name: "Fire Department", eta: 240 },
@@ -26,7 +13,7 @@ const sosResponders = {
  * Trigger an emergency SOS alert
  * Automatically shares live location with responders
  */
-export const triggerSOS: RequestHandler = (req, res) => {
+export const triggerSOS: RequestHandler = async (req, res) => {
   try {
     const { sosType, latitude, longitude, userId }: SOSTriggerRequest = req.body;
 
@@ -37,19 +24,28 @@ export const triggerSOS: RequestHandler = (req, res) => {
     const sosId = `SOS-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const now = new Date();
 
-    const sosAlert: ActiveSOS = {
-      sosId,
-      sosType,
-      userId,
-      latitude,
-      longitude,
-      status: "active",
-      createdAt: now,
-      lastLocationUpdate: now,
-      respondersNotified: []
-    };
+    const { data: sosAlert, error } = await supabase
+      .from("sos_alerts")
+      .insert([
+        {
+          sos_id: sosId,
+          sos_type: sosType,
+          user_id: userId,
+          latitude,
+          longitude,
+          status: "active",
+          created_at: now.toISOString(),
+          last_location_update: now.toISOString()
+        }
+      ])
+      .select()
+      .single();
 
-    activeSOS.set(sosId, sosAlert);
+    if (error) {
+      console.error("Supabase Error:", error);
+      res.status(500).json({ error: "Failed to trigger SOS" });
+      return;
+    }
 
     // Simulate notifying responders
     const responderList = Object.entries(sosResponders).map(([type, responder]) => ({
@@ -81,13 +77,18 @@ export const triggerSOS: RequestHandler = (req, res) => {
  * Update live location during active SOS
  * Called periodically while SOS is active
  */
-export const updateSOSLocation: RequestHandler = (req, res) => {
+export const updateSOSLocation: RequestHandler = async (req, res) => {
   try {
     const { sosId } = req.params;
     const { latitude, longitude } = req.body;
 
-    const sos = activeSOS.get(sosId);
-    if (!sos) {
+    const { data: sos, error: fetchError } = await supabase
+      .from("sos_alerts")
+      .select("*")
+      .eq("sos_id", sosId)
+      .single();
+
+    if (fetchError || !sos) {
       return res.status(404).json({ error: "SOS not found" });
     }
 
@@ -95,15 +96,27 @@ export const updateSOSLocation: RequestHandler = (req, res) => {
       return res.status(400).json({ error: "SOS is no longer active" });
     }
 
-    sos.latitude = latitude;
-    sos.longitude = longitude;
-    sos.lastLocationUpdate = new Date();
+    const now = new Date();
+    const { error: updateError } = await supabase
+      .from("sos_alerts")
+      .update({
+        latitude,
+        longitude,
+        last_location_update: now.toISOString()
+      })
+      .eq("sos_id", sosId);
+
+    if (updateError) {
+      console.error("Supabase Error:", updateError);
+      res.status(500).json({ error: "Failed to update location" });
+      return;
+    }
 
     const response: LocationShareUpdate = {
       sosId,
       latitude,
       longitude,
-      timestamp: sos.lastLocationUpdate.toISOString()
+      timestamp: now.toISOString()
     };
 
     console.log(`📍 SOS Location Updated: ${sosId} at ${latitude}, ${longitude}`);
@@ -119,12 +132,17 @@ export const updateSOSLocation: RequestHandler = (req, res) => {
  * GET /api/emergency/sos/:sosId
  * Get current status of an active SOS alert
  */
-export const getSOSStatus: RequestHandler = (req, res) => {
+export const getSOSStatus: RequestHandler = async (req, res) => {
   try {
     const { sosId } = req.params;
 
-    const sos = activeSOS.get(sosId);
-    if (!sos) {
+    const { data: sos, error } = await supabase
+      .from("sos_alerts")
+      .select("*")
+      .eq("sos_id", sosId)
+      .single();
+
+    if (error || !sos) {
       return res.status(404).json({ error: "SOS not found" });
     }
 
@@ -139,8 +157,8 @@ export const getSOSStatus: RequestHandler = (req, res) => {
       sosId,
       status: sos.status,
       responders: responderList,
-      createdAt: sos.createdAt.toISOString(),
-      lastLocationUpdate: sos.lastLocationUpdate.toISOString()
+      createdAt: sos.created_at,
+      lastLocationUpdate: sos.last_location_update
     };
 
     res.json(response);
@@ -154,23 +172,41 @@ export const getSOSStatus: RequestHandler = (req, res) => {
  * POST /api/emergency/sos/:sosId/resolve
  * Mark an SOS as resolved
  */
-export const resolveSOSAlert: RequestHandler = (req, res) => {
+export const resolveSOSAlert: RequestHandler = async (req, res) => {
   try {
     const { sosId } = req.params;
 
-    const sos = activeSOS.get(sosId);
-    if (!sos) {
+    const { data: sos, error: fetchError } = await supabase
+      .from("sos_alerts")
+      .select("*")
+      .eq("sos_id", sosId)
+      .single();
+
+    if (fetchError || !sos) {
       return res.status(404).json({ error: "SOS not found" });
     }
 
-    sos.status = "resolved";
+    const now = new Date();
+    const { error: updateError } = await supabase
+      .from("sos_alerts")
+      .update({
+        status: "resolved",
+        updated_at: now.toISOString()
+      })
+      .eq("sos_id", sosId);
+
+    if (updateError) {
+      console.error("Supabase Error:", updateError);
+      res.status(500).json({ error: "Failed to resolve SOS" });
+      return;
+    }
 
     const response: SOSResponse = {
       sosId,
       status: "resolved",
       responders: [],
-      createdAt: sos.createdAt.toISOString(),
-      lastLocationUpdate: new Date().toISOString()
+      createdAt: sos.created_at,
+      lastLocationUpdate: now.toISOString()
     };
 
     console.log(`✅ SOS Resolved: ${sosId}`);
@@ -186,23 +222,41 @@ export const resolveSOSAlert: RequestHandler = (req, res) => {
  * POST /api/emergency/sos/:sosId/cancel
  * Cancel an active SOS alert
  */
-export const cancelSOSAlert: RequestHandler = (req, res) => {
+export const cancelSOSAlert: RequestHandler = async (req, res) => {
   try {
     const { sosId } = req.params;
 
-    const sos = activeSOS.get(sosId);
-    if (!sos) {
+    const { data: sos, error: fetchError } = await supabase
+      .from("sos_alerts")
+      .select("*")
+      .eq("sos_id", sosId)
+      .single();
+
+    if (fetchError || !sos) {
       return res.status(404).json({ error: "SOS not found" });
     }
 
-    sos.status = "cancelled";
+    const now = new Date();
+    const { error: updateError } = await supabase
+      .from("sos_alerts")
+      .update({
+        status: "cancelled",
+        updated_at: now.toISOString()
+      })
+      .eq("sos_id", sosId);
+
+    if (updateError) {
+      console.error("Supabase Error:", updateError);
+      res.status(500).json({ error: "Failed to cancel SOS" });
+      return;
+    }
 
     const response: SOSResponse = {
       sosId,
       status: "cancelled",
       responders: [],
-      createdAt: sos.createdAt.toISOString(),
-      lastLocationUpdate: new Date().toISOString()
+      createdAt: sos.created_at,
+      lastLocationUpdate: now.toISOString()
     };
 
     console.log(`❌ SOS Cancelled: ${sosId}`);
@@ -218,20 +272,27 @@ export const cancelSOSAlert: RequestHandler = (req, res) => {
  * GET /api/emergency/active
  * Get all active SOS alerts (admin endpoint)
  */
-export const getActiveSOS: RequestHandler = (req, res) => {
+export const getActiveSOS: RequestHandler = async (req, res) => {
   try {
-    const activeAlerts = Array.from(activeSOS.values()).filter(
-      sos => sos.status === "active"
-    );
+    const { data: activeAlerts, error } = await supabase
+      .from("sos_alerts")
+      .select("*")
+      .eq("status", "active");
+
+    if (error) {
+      console.error("Supabase Error:", error);
+      res.status(500).json({ error: "Failed to get active SOS alerts" });
+      return;
+    }
 
     res.json({
-      count: activeAlerts.length,
-      alerts: activeAlerts.map(sos => ({
-        sosId: sos.sosId,
-        sosType: sos.sosType,
+      count: (activeAlerts || []).length,
+      alerts: (activeAlerts || []).map(sos => ({
+        sosId: sos.sos_id,
+        sosType: sos.sos_type,
         location: { lat: sos.latitude, lng: sos.longitude },
-        createdAt: sos.createdAt.toISOString(),
-        lastUpdate: sos.lastLocationUpdate.toISOString()
+        createdAt: sos.created_at,
+        lastUpdate: sos.last_location_update
       }))
     });
   } catch (error) {
