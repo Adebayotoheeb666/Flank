@@ -45,9 +45,9 @@ export default function MapPage() {
   useEffect(() => {
     if (map.current || !mapContainer.current) return; // initialize map only once
 
-    const apiKey = (import.meta as any).env?.VITE_MAPTILER_API_KEY || "REPLACE_ENV.MAPTILER_API_KEY";
+    const apiKey = (import.meta as any).env?.VITE_MAPTILER_API_KEY;
 
-    if (apiKey === "REPLACE_ENV.MAPTILER_API_KEY") {
+    if (!apiKey) {
       console.error("MapTiler API Key is missing! Please add VITE_MAPTILER_API_KEY to your environment variables.");
       return;
     }
@@ -157,9 +157,13 @@ export default function MapPage() {
     if (!selectedLocation) return;
 
     try {
-      // Mock user location for now (Main Gate area)
-      const userLat = 7.2950;
-      const userLng = 5.1250;
+      // Get real user location using geolocation API
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject);
+      });
+
+      const userLat = position.coords.latitude;
+      const userLng = position.coords.longitude;
 
       const response = await fetch("/api/route", {
         method: "POST",

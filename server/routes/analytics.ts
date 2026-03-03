@@ -1,5 +1,6 @@
 import { RequestHandler } from "express";
 import { AnalyticsDashboard, DestinationAnalytics } from "@shared/api";
+import { supabase } from "../../shared/supabase";
 
 interface PageViewEvent {
   page: string;
@@ -21,7 +22,7 @@ interface SearchEvent {
   timestamp: string;
 }
 
-// In-memory storage for demo (replace with Supabase in production)
+// Fallback in-memory storage (for when Supabase tables are not available)
 const pageViews: PageViewEvent[] = [];
 const navigationEvents: NavigationEventData[] = [];
 const searchQueries: SearchEvent[] = [];
@@ -29,8 +30,9 @@ const searchQueries: SearchEvent[] = [];
 /**
  * Track page view
  * POST /api/analytics/page-view
+ * TODO: Persist all analytics to Supabase once analytics tables are created
  */
-export const trackPageView: RequestHandler = (req, res) => {
+export const trackPageView: RequestHandler = async (req, res) => {
   try {
     const { page, timestamp } = req.body;
 
@@ -38,10 +40,25 @@ export const trackPageView: RequestHandler = (req, res) => {
       return res.status(400).json({ error: "Missing page name" });
     }
 
-    pageViews.push({
+    const pageViewData = {
       page,
       timestamp: timestamp || new Date().toISOString(),
-    });
+    };
+
+    // Try to save to Supabase if available
+    if (supabase) {
+      const { error } = await supabase
+        .from("page_views")
+        .insert([pageViewData])
+        .catch(() => ({ error: "Supabase not available" }));
+
+      if (error) {
+        console.warn("Failed to save page view to Supabase, using in-memory storage:", error);
+        pageViews.push(pageViewData);
+      }
+    } else {
+      pageViews.push(pageViewData);
+    }
 
     res.json({ tracked: true });
   } catch (error) {
@@ -80,8 +97,9 @@ export const trackPageExit: RequestHandler = (req, res) => {
 /**
  * Track navigation
  * POST /api/analytics/navigation
+ * TODO: Persist to Supabase once navigation_events table is created
  */
-export const trackNavigation: RequestHandler = (req, res) => {
+export const trackNavigation: RequestHandler = async (req, res) => {
   try {
     const { from, to, method, distanceMeters, duration, timestamp } = req.body;
 
@@ -91,14 +109,29 @@ export const trackNavigation: RequestHandler = (req, res) => {
       });
     }
 
-    navigationEvents.push({
+    const navigationData = {
       from,
       to,
       method,
       distanceMeters,
       duration,
       timestamp: timestamp || new Date().toISOString(),
-    });
+    };
+
+    // Try to save to Supabase if available
+    if (supabase) {
+      const { error } = await supabase
+        .from("navigation_events")
+        .insert([navigationData])
+        .catch(() => ({ error: "Supabase not available" }));
+
+      if (error) {
+        console.warn("Failed to save navigation to Supabase, using in-memory storage:", error);
+        navigationEvents.push(navigationData);
+      }
+    } else {
+      navigationEvents.push(navigationData);
+    }
 
     console.log(`[Analytics] Navigation tracked: ${from} -> ${to}`);
 
@@ -112,8 +145,9 @@ export const trackNavigation: RequestHandler = (req, res) => {
 /**
  * Track search
  * POST /api/analytics/search
+ * TODO: Persist to Supabase once search_events table is created
  */
-export const trackSearch: RequestHandler = (req, res) => {
+export const trackSearch: RequestHandler = async (req, res) => {
   try {
     const { query, timestamp } = req.body;
 
@@ -121,10 +155,25 @@ export const trackSearch: RequestHandler = (req, res) => {
       return res.status(400).json({ error: "Missing search query" });
     }
 
-    searchQueries.push({
+    const searchData = {
       query: query.toLowerCase(),
       timestamp: timestamp || new Date().toISOString(),
-    });
+    };
+
+    // Try to save to Supabase if available
+    if (supabase) {
+      const { error } = await supabase
+        .from("search_events")
+        .insert([searchData])
+        .catch(() => ({ error: "Supabase not available" }));
+
+      if (error) {
+        console.warn("Failed to save search to Supabase, using in-memory storage:", error);
+        searchQueries.push(searchData);
+      }
+    } else {
+      searchQueries.push(searchData);
+    }
 
     console.log(`[Analytics] Search tracked: "${query}"`);
 

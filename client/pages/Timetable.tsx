@@ -19,50 +19,44 @@ interface RouteReminder {
   distanceMeters: number;
 }
 
-const MOCK_COURSES: Course[] = [
-  {
-    id: "1",
-    code: "FEC 101",
-    name: "Introduction to Computer Science",
-    venue: "SEET Building, Room 301",
-    time: "08:00 AM",
-    day: "Monday",
-    duration: 60,
-    notificationTime: 20
-  },
-  {
-    id: "2",
-    code: "FEC 102",
-    name: "Data Structures",
-    venue: "SEET Building, Lab 5",
-    time: "10:30 AM",
-    day: "Wednesday",
-    duration: 90,
-    notificationTime: 15
-  },
-  {
-    id: "3",
-    code: "FEC 103",
-    name: "Database Systems",
-    venue: "SAAT Building, Room 205",
-    time: "02:00 PM",
-    day: "Friday",
-    duration: 60,
-    notificationTime: 25
-  }
-];
-
 export default function TimetablePage() {
   // Track page analytics
   useAnalytics("timetable");
 
-  const [courses, setCourses] = useState<Course[]>(MOCK_COURSES);
+  const [courses, setCourses] = useState<Course[]>([]);
   const [newCourse, setNewCourse] = useState<Partial<Course>>({});
   const [showAddForm, setShowAddForm] = useState(false);
   const [reminders, setReminders] = useState<RouteReminder[]>([]);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [loadingReminder, setLoadingReminder] = useState<string | null>(null);
-  const [studentId] = useState("student_demo_user"); // In real app, get from auth
+  const [loadingCourses, setLoadingCourses] = useState(true);
+  // TODO: Replace with authenticated user from Supabase Auth context
+  // For now, using demo ID - this should come from useAuth() hook once implemented
+  const studentId = localStorage.getItem("userId") || "student_demo_user";
+
+  // Fetch courses from API
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        setLoadingCourses(true);
+        const response = await fetch(`/api/timetable/${studentId}`);
+        if (response.ok) {
+          const data = await response.json();
+          setCourses(data);
+        } else {
+          console.error("Failed to fetch courses:", response.status);
+          setCourses([]);
+        }
+      } catch (error) {
+        console.error("Error fetching courses:", error);
+        setCourses([]);
+      } finally {
+        setLoadingCourses(false);
+      }
+    };
+
+    fetchCourses();
+  }, [studentId]);
 
   // Calculate route reminders for upcoming classes
   const calculateRouteReminder = async (courseId: string, venue: string) => {
@@ -290,7 +284,12 @@ export default function TimetablePage() {
 
           {/* Courses List */}
           <div className="space-y-3">
-            {upcomingCourses.length === 0 ? (
+            {loadingCourses ? (
+              <Card className="p-12 text-center">
+                <Loader className="h-12 w-12 text-muted-foreground mx-auto mb-4 animate-spin" />
+                <p className="text-muted-foreground">Loading your courses...</p>
+              </Card>
+            ) : upcomingCourses.length === 0 ? (
               <Card className="p-12 text-center">
                 <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-50" />
                 <p className="text-muted-foreground">No courses scheduled yet. Add your first course!</p>

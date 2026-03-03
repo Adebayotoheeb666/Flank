@@ -22,6 +22,13 @@ interface EmergencySOSType {
   description: string;
 }
 
+interface EmergencyContact {
+  id: string;
+  title: string;
+  phone: string;
+  type: string;
+}
+
 export default function EmergencyPage() {
   // Track page analytics
   useAnalytics("emergency");
@@ -35,6 +42,8 @@ export default function EmergencyPage() {
   const [respondersCount, setRespondersCount] = useState(0);
   const [sosId, setSOSId] = useState<string | null>(null);
   const [isTriggering, setIsTriggering] = useState(false);
+  const [contacts, setContacts] = useState<Array<EmergencyContact & { icon: any; color: string }>>([]);
+  const [loadingContacts, setLoadingContacts] = useState(true);
   const locationWatchId = useRef<number | null>(null);
 
   const sosTypes: EmergencySOSType[] = [
@@ -61,11 +70,41 @@ export default function EmergencyPage() {
     },
   ];
 
-  const contacts = [
-    { title: "FUTA Security", phone: "0801-234-5678", icon: Shield, color: "bg-blue-600" },
-    { title: "Health Centre", phone: "0802-345-6789", icon: Activity, color: "bg-red-600" },
-    { title: "Fire Service", phone: "0803-456-7890", icon: Flame, color: "bg-orange-600" },
-  ];
+  // Fetch emergency contacts from API
+  useEffect(() => {
+    const fetchContacts = async () => {
+      try {
+        setLoadingContacts(true);
+        const response = await fetch("/api/emergency/contacts");
+        if (response.ok) {
+          const data = await response.json();
+          const iconMap: Record<string, any> = {
+            security: Shield,
+            medical: Activity,
+            fire: Flame
+          };
+          const colorMap: Record<string, string> = {
+            security: "bg-blue-600",
+            medical: "bg-red-600",
+            fire: "bg-orange-600"
+          };
+          const contactsWithIcons = data.map((contact: EmergencyContact) => ({
+            ...contact,
+            icon: iconMap[contact.type] || Shield,
+            color: colorMap[contact.type] || "bg-gray-600"
+          }));
+          setContacts(contactsWithIcons);
+        }
+      } catch (error) {
+        console.error("Failed to fetch emergency contacts:", error);
+        setContacts([]);
+      } finally {
+        setLoadingContacts(false);
+      }
+    };
+
+    fetchContacts();
+  }, []);
 
   // Get user location and update to server
   useEffect(() => {
@@ -130,11 +169,13 @@ export default function EmergencyPage() {
 
     try {
       setIsTriggering(true);
+      // TODO: Replace with authenticated user from Supabase Auth
+      const userId = localStorage.getItem("userId") || "student_demo_user";
       const sosRequest: SOSTriggerRequest = {
         sosType: sosTypeId as SOSType,
         latitude: userLocation.lat,
         longitude: userLocation.lng,
-        userId: "student_demo_user" // In real app, get from auth
+        userId
       };
 
       const response = await fetch("/api/emergency/sos", {
