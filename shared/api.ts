@@ -29,3 +29,109 @@ export interface Location {
 export interface SearchResponse {
   locations: Location[];
 }
+
+// Phase 3: Timetable & Reminder System
+export interface Course {
+  id: string;
+  code: string;
+  name: string;
+  venue: string;
+  time: string;
+  day: string;
+  duration: number;
+  notificationTime: number;
+  studentId?: string;
+}
+
+export interface CourseResponse {
+  courses: Course[];
+}
+
+export interface RouteReminderRequest {
+  courseId: string;
+  studentId: string;
+}
+
+export interface RouteReminderResponse {
+  courseId: string;
+  estimatedTravelTime: number;
+  distanceMeters: number;
+  shouldLeaveNow: boolean;
+  nextClass?: Course;
+}
+
+// Phase 3: Emergency SOS System
+export type SOSType = "medical" | "fire" | "security";
+
+export interface SOSTriggerRequest {
+  sosType: SOSType;
+  latitude: number;
+  longitude: number;
+  userId: string;
+}
+
+export interface SOSResponse {
+  sosId: string;
+  status: "active" | "resolved" | "cancelled";
+  responders: {
+    id: string;
+    name: string;
+    type: string;
+    eta: number; // in seconds
+  }[];
+  createdAt: string;
+  lastLocationUpdate: string;
+}
+
+export interface LocationShareUpdate {
+  sosId: string;
+  latitude: number;
+  longitude: number;
+  timestamp: string;
+}
+
+export interface FreshersGuideStep {
+  id: number;
+  instruction: string;
+  landmark: string;
+  action: string;
+  distance: string;
+  tips: string[];
+}
+
+// Phase 4: Offline Resilience
+export interface CachedLocation {
+  id: string;
+  latitude: number;
+  longitude: number;
+  accuracy: number;
+  timestamp: number;
+  altitude?: number;
+  heading?: number;
+  speed?: number;
+}
+
+export interface LocationTrajectory {
+  lat: number;
+  lng: number;
+  timestamp: number;
+}
+
+export interface ProximityAlert {
+  id: string;
+  targetLat: number;
+  targetLng: number;
+  radiusMeters: number;
+  reached: boolean;
+}
+
+export interface PWACacheInfo {
+  name: string;
+  count: number;
+}
+
+export interface StorageQuota {
+  quota: number;
+  usage: number;
+  percentage: number;
+}
