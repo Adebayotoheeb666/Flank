@@ -1,22 +1,44 @@
 import { RequestHandler } from "express";
 import { Course, CourseResponse, RouteReminderResponse } from "@shared/api";
-
-// Mock database - in production, this would be Supabase
-const courseDatabase: Record<string, Course[]> = {};
+import { supabase } from "../../shared/supabase";
 
 /**
  * GET /api/timetable/:studentId
  * Fetch all courses for a student
  */
-export const getTimetable: RequestHandler = (req, res) => {
+export const getTimetable: RequestHandler = async (req, res) => {
   try {
     const studentId = req.params.studentId;
-    const courses = courseDatabase[studentId] || [];
-    
+
+    const { data: courses, error } = await supabase
+      .from("student_courses")
+      .select("*")
+      .eq("student_id", studentId)
+      .order("day");
+
+    if (error) {
+      console.error("Supabase Error:", error);
+      res.status(500).json({ error: "Failed to fetch timetable" });
+      return;
+    }
+
+    // Map Supabase columns to Course interface
+    const mappedCourses: Course[] = (courses || []).map((course: any) => ({
+      id: course.id,
+      code: course.course_code,
+      name: course.course_name,
+      venue: course.venue,
+      time: course.time,
+      day: course.day,
+      duration: course.duration,
+      notificationTime: course.notification_time,
+      studentId
+    }));
+
     const response: CourseResponse = {
-      courses
+      courses: mappedCourses
     };
-    
+
     res.json(response);
   } catch (error) {
     console.error("Timetable fetch error:", error);
@@ -28,20 +50,52 @@ export const getTimetable: RequestHandler = (req, res) => {
  * POST /api/timetable/:studentId
  * Add a new course for a student
  */
-export const addCourse: RequestHandler = (req, res) => {
+export const addCourse: RequestHandler = async (req, res) => {
   try {
     const studentId = req.params.studentId;
     const course: Course = req.body;
 
-    if (!courseDatabase[studentId]) {
-      courseDatabase[studentId] = [];
+    if (!course.code || !course.name || !course.venue || !course.time || !course.day) {
+      res.status(400).json({ error: "Missing required course fields" });
+      return;
     }
 
-    course.id = String(Date.now());
-    course.studentId = studentId;
-    courseDatabase[studentId].push(course);
+    const { data: newCourse, error } = await supabase
+      .from("student_courses")
+      .insert([
+        {
+          student_id: studentId,
+          course_code: course.code,
+          course_name: course.name,
+          venue: course.venue,
+          time: course.time,
+          day: course.day,
+          duration: course.duration || 60,
+          notification_time: course.notificationTime || 15
+        }
+      ])
+      .select()
+      .single();
 
-    res.status(201).json(course);
+    if (error) {
+      console.error("Supabase Error:", error);
+      res.status(500).json({ error: "Failed to add course" });
+      return;
+    }
+
+    const mappedCourse: Course = {
+      id: newCourse.id,
+      code: newCourse.course_code,
+      name: newCourse.course_name,
+      venue: newCourse.venue,
+      time: newCourse.time,
+      day: newCourse.day,
+      duration: newCourse.duration,
+      notificationTime: newCourse.notification_time,
+      studentId
+    };
+
+    res.status(201).json(mappedCourse);
   } catch (error) {
     console.error("Course creation error:", error);
     res.status(500).json({ error: "Failed to add course" });
@@ -52,17 +106,21 @@ export const addCourse: RequestHandler = (req, res) => {
  * DELETE /api/timetable/:studentId/:courseId
  * Delete a course for a student
  */
-export const deleteCourse: RequestHandler = (req, res) => {
+export const deleteCourse: RequestHandler = async (req, res) => {
   try {
     const { studentId, courseId } = req.params;
 
-    if (!courseDatabase[studentId]) {
-      return res.status(404).json({ error: "Student not found" });
-    }
+    const { error } = await supabase
+      .from("student_courses")
+      .delete()
+      .eq("id", courseId)
+      .eq("student_id", studentId);
 
-    courseDatabase[studentId] = courseDatabase[studentId].filter(
-      c => c.id !== courseId
-    );
+    if (error) {
+      console.error("Supabase Error:", error);
+      res.status(500).json({ error: "Failed to delete course" });
+      return;
+    }
 
     res.json({ message: "Course deleted" });
   } catch (error) {
@@ -75,18 +133,21 @@ export const deleteCourse: RequestHandler = (req, res) => {
  * POST /api/timetable/:studentId/reminder
  * Check if student should leave for class and get route info
  */
-export const getRouteReminder: RequestHandler = (req, res) => {
+export const getRouteReminder: RequestHandler = async (req, res) => {
   try {
     const { studentId } = req.params;
     const { courseId, latitude, longitude } = req.body;
 
-    if (!courseDatabase[studentId]) {
-      return res.status(404).json({ error: "Student not found" });
-    }
+    const { data: course, error } = await supabase
+      .from("student_courses")
+      .select("*")
+      .eq("id", courseId)
+      .eq("student_id", studentId)
+      .single();
 
-    const course = courseDatabase[studentId].find(c => c.id === courseId);
-    if (!course) {
-      return res.status(404).json({ error: "Course not found" });
+    if (error || !course) {
+      res.status(404).json({ error: "Course not found" });
+      return;
     }
 
     // Mock calculation of travel time
@@ -105,14 +166,26 @@ export const getRouteReminder: RequestHandler = (req, res) => {
     const courseHour = parseInt(course.time.split(":")[0]);
     const currentHour = new Date().getHours();
     const minutesUntilClass = (courseHour - currentHour) * 60;
-    const shouldLeaveNow = minutesUntilClass <= course.notificationTime && minutesUntilClass > 0;
+    const shouldLeaveNow = minutesUntilClass <= course.notification_time && minutesUntilClass > 0;
+
+    const mappedCourse: Course = {
+      id: course.id,
+      code: course.course_code,
+      name: course.course_name,
+      venue: course.venue,
+      time: course.time,
+      day: course.day,
+      duration: course.duration,
+      notificationTime: course.notification_time,
+      studentId
+    };
 
     const response: RouteReminderResponse = {
       courseId,
       estimatedTravelTime,
       distanceMeters: Math.round(distance),
       shouldLeaveNow,
-      nextClass: course
+      nextClass: mappedCourse
     };
 
     res.json(response);
@@ -126,26 +199,37 @@ export const getRouteReminder: RequestHandler = (req, res) => {
  * GET /api/timetable/:studentId/upcoming
  * Get all upcoming courses for today
  */
-export const getUpcomingCourses: RequestHandler = (req, res) => {
+export const getUpcomingCourses: RequestHandler = async (req, res) => {
   try {
     const { studentId } = req.params;
-    const courses = courseDatabase[studentId] || [];
+    const today = new Date().toLocaleDateString("en-US", { weekday: "long" });
 
-    if (!courses.length) {
-      return res.json({ courses: [] });
+    const { data: courses, error } = await supabase
+      .from("student_courses")
+      .select("*")
+      .eq("student_id", studentId)
+      .eq("day", today)
+      .order("time", { ascending: true });
+
+    if (error) {
+      console.error("Supabase Error:", error);
+      res.status(500).json({ error: "Failed to fetch upcoming courses" });
+      return;
     }
 
-    const today = new Date().toLocaleDateString("en-US", { weekday: "long" });
-    const upcomingCourses = courses.filter(c => c.day === today);
+    const mappedCourses: Course[] = (courses || []).map((course: any) => ({
+      id: course.id,
+      code: course.course_code,
+      name: course.course_name,
+      venue: course.venue,
+      time: course.time,
+      day: course.day,
+      duration: course.duration,
+      notificationTime: course.notification_time,
+      studentId
+    }));
 
-    // Sort by time
-    upcomingCourses.sort((a, b) => {
-      const timeA = parseInt(a.time.split(":")[0]);
-      const timeB = parseInt(b.time.split(":")[0]);
-      return timeA - timeB;
-    });
-
-    const response: CourseResponse = { courses: upcomingCourses };
+    const response: CourseResponse = { courses: mappedCourses };
     res.json(response);
   } catch (error) {
     console.error("Upcoming courses error:", error);

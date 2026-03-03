@@ -36,22 +36,28 @@ export default function MapPage() {
 
   // Initialize MapLibre (for MapTiler)
   useEffect(() => {
-    if (map.current) return; // initialize map only once
+    if (map.current || !mapContainer.current) return; // initialize map only once
 
     const apiKey = (import.meta as any).env?.VITE_MAPTILER_API_KEY || "REPLACE_ENV.MAPTILER_API_KEY";
 
     if (apiKey === "REPLACE_ENV.MAPTILER_API_KEY") {
       console.error("MapTiler API Key is missing! Please add VITE_MAPTILER_API_KEY to your environment variables.");
+      return;
     }
 
-    map.current = new maplibregl.Map({
-      container: mapContainer.current!,
-      style: `https://api.maptiler.com/maps/streets-v2/style.json?key=${apiKey}`,
-      center: FUTA_CENTER,
-      zoom: 15,
-    });
+    try {
+      map.current = new maplibregl.Map({
+        container: mapContainer.current,
+        style: `https://api.maptiler.com/maps/streets-v2/style.json?key=${apiKey}`,
+        center: FUTA_CENTER,
+        zoom: 15,
+      });
 
-    map.current.addControl(new maplibregl.NavigationControl(), "top-right");
+      map.current.addControl(new maplibregl.NavigationControl(), "top-right");
+      console.log("Map initialized successfully");
+    } catch (error) {
+      console.error("Failed to initialize map:", error);
+    }
 
     return () => {
       map.current?.remove();
@@ -152,7 +158,10 @@ export default function MapPage() {
         })
       });
 
-      if (!response.ok) throw new Error("Failed to calculate route");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Failed to calculate route (${response.status})`);
+      }
 
       const data: RouteResponse = await response.json();
       setRoute(data);

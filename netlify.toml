@@ -9,6 +9,11 @@
   node_bundler = "esbuild"
   
 [[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
   force = true
   from = "/api/*"
   status = 200
