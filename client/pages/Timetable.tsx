@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useAnalytics, trackNavigation } from "@/hooks/use-analytics";
+import { useUserId } from "@/hooks/use-auth";
 import {
   Clock, MapPin, Bell, Plus, Trash2, Save, Calendar, AlertCircle,
   CheckCircle, AlertTriangle, Navigation, Settings, X, Loader
@@ -30,9 +31,8 @@ export default function TimetablePage() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [loadingReminder, setLoadingReminder] = useState<string | null>(null);
   const [loadingCourses, setLoadingCourses] = useState(true);
-  // TODO: Replace with authenticated user from Supabase Auth context
-  // For now, using demo ID - this should come from useAuth() hook once implemented
-  const studentId = localStorage.getItem("userId") || "student_demo_user";
+  // Get authenticated user ID from useAuth hook
+  const studentId = useUserId();
 
   // Fetch courses from API
   useEffect(() => {

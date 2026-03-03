@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAnalytics } from "@/hooks/use-analytics";
+import { useUserId } from "@/hooks/use-auth";
 import {
   ChevronLeft, ChevronRight, MapPin, Users, BookOpen, Clock,
-  Star, Building2, ArrowLeft, Info, ImagePlay, Play, Volume2, X, RotateCw
+  Star, Building2, ArrowLeft, Info, ImagePlay, Play, Volume2, X, RotateCw, Loader
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
@@ -136,21 +137,72 @@ const CAMPUS_BUILDINGS: Building[] = [
 
 export default function VirtualTourPage() {
   useAnalytics("virtual_tour");
+  const userId = useUserId();
 
-  const [selectedBuilding, setSelectedBuilding] = useState<Building>(CAMPUS_BUILDINGS[0]);
+  const [buildings, setBuildings] = useState<Building[]>(CAMPUS_BUILDINGS);
+  const [selectedBuilding, setSelectedBuilding] = useState<Building | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [viewMode, setViewMode] = useState<"gallery" | "panorama">("gallery");
   const [showVideo, setShowVideo] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch buildings from API
+  useEffect(() => {
+    const fetchBuildings = async () => {
+      try {
+        const response = await fetch("/api/virtual-tour/buildings");
+        if (response.ok) {
+          const data = await response.json();
+          if (data && data.length > 0) {
+            setBuildings(data);
+            setSelectedBuilding(data[0]);
+          } else {
+            // Use fallback if no data from API
+            setSelectedBuilding(CAMPUS_BUILDINGS[0]);
+          }
+        } else {
+          setSelectedBuilding(CAMPUS_BUILDINGS[0]);
+        }
+      } catch (error) {
+        console.error("Failed to fetch buildings:", error);
+        setSelectedBuilding(CAMPUS_BUILDINGS[0]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchBuildings();
+  }, []);
+
+  // Log tour view when building is selected
+  useEffect(() => {
+    if (selectedBuilding && userId) {
+      const logView = async () => {
+        try {
+          await fetch(`/api/virtual-tour/buildings/${selectedBuilding.id}/view`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId })
+          });
+        } catch (error) {
+          console.error("Failed to log view:", error);
+        }
+      };
+      logView();
+    }
+  }, [selectedBuilding?.id, userId]);
 
   const handlePrevImage = () => {
+    if (!selectedBuilding?.images) return;
     setCurrentImageIndex((prev) =>
-      prev === 0 ? selectedBuilding.images.length - 1 : prev - 1
+      prev === 0 ? selectedBuilding.images!.length - 1 : prev - 1
     );
   };
 
   const handleNextImage = () => {
+    if (!selectedBuilding?.images) return;
     setCurrentImageIndex((prev) =>
-      prev === selectedBuilding.images.length - 1 ? 0 : prev + 1
+      prev === selectedBuilding.images!.length - 1 ? 0 : prev + 1
     );
   };
 
@@ -185,6 +237,18 @@ export default function VirtualTourPage() {
 
         {/* Main Tour Section */}
         <div className="container py-12 space-y-8">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center space-y-4">
+                <Loader className="h-12 w-12 animate-spin text-primary mx-auto" />
+                <p className="text-muted-foreground">Loading campus tour...</p>
+              </div>
+            </div>
+          ) : !selectedBuilding ? (
+            <Card className="p-12 text-center">
+              <p className="text-muted-foreground">No buildings available</p>
+            </Card>
+          ) : (
           <div className="grid lg:grid-cols-3 gap-8">
             {/* Media Viewer */}
             <div className="lg:col-span-2 space-y-4">
@@ -198,7 +262,7 @@ export default function VirtualTourPage() {
                   <ImagePlay className="h-4 w-4 mr-2" />
                   Gallery
                 </Button>
-                {selectedBuilding.panoramaImage && (
+                {selectedBuilding && selectedBuilding.panoramaImage && (
                   <Button
                     variant={viewMode === "panorama" ? "default" : "outline"}
                     onClick={() => setViewMode("panorama")}
@@ -231,7 +295,7 @@ export default function VirtualTourPage() {
                     <X className="h-4 w-4" />
                   </Button>
                 </Card>
-              ) : viewMode === "panorama" && selectedBuilding.panoramaImage ? (
+              ) : viewMode === "panorama" && selectedBuilding && selectedBuilding.panoramaImage ? (
                 <PanoramaViewer
                   imageUrl={selectedBuilding.panoramaImage}
                   title={`${selectedBuilding.shortName} - 360° View`}
@@ -239,7 +303,7 @@ export default function VirtualTourPage() {
               ) : (
                 <Card className="overflow-hidden aspect-video bg-slate-900 relative group">
                   <img
-                    src={selectedBuilding.images[currentImageIndex]}
+                    src={selectedBuilding.images?.[currentImageIndex] || ""}
                     alt={selectedBuilding.name}
                     className="w-full h-full object-cover"
                   />
@@ -433,6 +497,7 @@ export default function VirtualTourPage() {
               </Card>
             </div>
           </div>
+          )}
         </div>
 
         {/* Footer */}
