@@ -3,6 +3,7 @@ import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { useAnalytics } from "@/hooks/use-analytics";
 import {
   Volume2, MapPin, Compass, ChevronRight, ChevronLeft,
   TreeDeciduous, Building2, AlertCircle, Phone, X,
@@ -56,6 +57,9 @@ const GUIDANCE_SEQUENCE = [
 ];
 
 export default function FreshersPage() {
+  // Track page analytics
+  useAnalytics("freshers");
+
   const [currentStep, setCurrentStep] = useState(0);
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);

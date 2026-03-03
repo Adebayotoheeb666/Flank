@@ -2,18 +2,20 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import Layout from "@/components/Layout";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { useAnalytics, trackSearch, trackNavigation } from "@/hooks/use-analytics";
 import {
   Search, MapPin, Navigation, Compass, Phone,
   Info, Filter, Layers, ZoomIn, ZoomOut,
   MoreVertical, Clock, TrendingUp, AlertCircle, ChevronRight, ChevronLeft,
   X, LocateFixed, TreeDeciduous, Building2, Utensils, CreditCard, Activity, GraduationCap,
-  ArrowRight
+  ArrowRight, AlertTriangle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Location } from "@shared/api";
 import { RouteResponse, RouteStep } from "@shared/navigation";
+import ReportErrorModal from "@/components/ReportErrorModal";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
@@ -21,6 +23,9 @@ import "maplibre-gl/dist/maplibre-gl.css";
 const FUTA_CENTER: [number, number] = [5.1300, 7.3000];
 
 export default function MapPage() {
+  // Track page analytics
+  useAnalytics("map");
+
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const [locations, setLocations] = useState<Location[]>([]);
@@ -32,6 +37,8 @@ export default function MapPage() {
   const [loading, setLoading] = useState(true);
   const [route, setRoute] = useState<RouteResponse | null>(null);
   const [preferFlat, setPreferFlat] = useState(false);
+  const [reportErrorOpen, setReportErrorOpen] = useState(false);
+  const [currentMapCenter, setCurrentMapCenter] = useState<{ lat: number; lng: number } | undefined>();
   const markers = useRef<Record<string, maplibregl.Marker>>({});
 
   // Initialize MapLibre (for MapTiler)
@@ -126,6 +133,13 @@ export default function MapPage() {
     });
   }, [searchQuery, locations]);
 
+  // Track search queries
+  useEffect(() => {
+    if (searchQuery.trim()) {
+      trackSearch(searchQuery);
+    }
+  }, [searchQuery]);
+
   const handleLocationClick = (loc: Location) => {
     setSelectedLocation(loc);
     setIsNavigating(false);
@@ -166,6 +180,9 @@ export default function MapPage() {
       const data: RouteResponse = await response.json();
       setRoute(data);
       setIsNavigating(true);
+
+      // Track navigation
+      trackNavigation("current_location", selectedLocation.name, "map_click", data.total_distance);
 
       // Draw route on map
       if (map.current) {
@@ -333,6 +350,21 @@ export default function MapPage() {
             <Button size="icon" variant="secondary" className="rounded-full shadow-lg bg-background/80 backdrop-blur">
               <LocateFixed className="h-5 w-5 text-blue-600" />
             </Button>
+            <Button
+              size="icon"
+              variant="secondary"
+              className="rounded-full shadow-lg bg-background/80 backdrop-blur"
+              onClick={() => {
+                if (map.current) {
+                  const center = map.current.getCenter();
+                  setCurrentMapCenter({ lat: center.lat, lng: center.lng });
+                }
+                setReportErrorOpen(true);
+              }}
+              title="Report a map error"
+            >
+              <AlertTriangle className="h-5 w-5 text-orange-600" />
+            </Button>
           </div>
 
           {/* Bottom Info Sheet / Navigation Panel */}
@@ -493,6 +525,12 @@ export default function MapPage() {
           scrollbar-width: none;
         }
       `}</style>
+
+      <ReportErrorModal
+        open={reportErrorOpen}
+        onOpenChange={setReportErrorOpen}
+        currentLocation={currentMapCenter}
+      />
     </Layout>
   );
 }

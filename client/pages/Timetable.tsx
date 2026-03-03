@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { useAnalytics } from "@/hooks/use-analytics";
 import {
   Clock, MapPin, Bell, Plus, Trash2, Save, Calendar, AlertCircle,
   CheckCircle, AlertTriangle, Navigation, Settings, X
@@ -62,6 +63,9 @@ const MOCK_COURSES: Course[] = [
 ];
 
 export default function TimetablePage() {
+  // Track page analytics
+  useAnalytics("timetable");
+
   const [courses, setCourses] = useState<Course[]>(MOCK_COURSES);
   const [newCourse, setNewCourse] = useState<Partial<Course>>({});
   const [showAddForm, setShowAddForm] = useState(false);

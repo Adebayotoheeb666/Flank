@@ -9,7 +9,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import MapPage from "./pages/Map";
-import PlaceholderPage from "./pages/Placeholder";
+import VirtualTourPage from "./pages/VirtualTour";
+import AnalyticsPage from "./pages/Analytics";
 import EmergencyPage from "./pages/Emergency";
 import FreshersPage from "./pages/Freshers";
 import TimetablePage from "./pages/Timetable";
@@ -59,10 +60,8 @@ const App = () => {
             <Route path="/map" element={<MapPage />} />
             <Route path="/freshers" element={<FreshersPage />} />
             <Route path="/timetable" element={<TimetablePage />} />
-            <Route
-              path="/tour"
-              element={<PlaceholderPage title="Virtual Tour" description="360° images and campus intro videos for prospective students and parents." />}
-            />
+            <Route path="/tour" element={<VirtualTourPage />} />
+            <Route path="/admin/analytics" element={<AnalyticsPage />} />
             <Route path="/emergency" element={<EmergencyPage />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
