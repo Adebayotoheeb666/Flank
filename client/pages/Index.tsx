@@ -62,14 +62,18 @@ export default function Index() {
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-4 pt-4">
-            <Button size="lg" className="rounded-full bg-secondary text-secondary-foreground hover:bg-secondary/90 h-14 px-8 text-lg font-bold gap-2">
-              <Navigation className="h-5 w-5" />
-              Explore Map
-            </Button>
-            <Button size="lg" variant="outline" className="rounded-full border-primary-foreground/20 bg-primary-foreground/10 backdrop-blur hover:bg-primary-foreground/20 h-14 px-8 text-lg font-bold gap-2">
-              <Compass className="h-5 w-5" />
-              Virtual Tour
-            </Button>
+            <Link to="/map">
+              <Button size="lg" className="rounded-full bg-secondary text-secondary-foreground hover:bg-secondary/90 h-14 px-8 text-lg font-bold gap-2">
+                <Navigation className="h-5 w-5" />
+                Explore Map
+              </Button>
+            </Link>
+            <Link to="/tour">
+              <Button size="lg" variant="outline" className="rounded-full border-primary-foreground/20 bg-primary-foreground/10 backdrop-blur hover:bg-primary-foreground/20 h-14 px-8 text-lg font-bold gap-2">
+                <Compass className="h-5 w-5" />
+                Virtual Tour
+              </Button>
+            </Link>
           </div>
         </div>
       </section>
@@ -126,9 +130,11 @@ export default function Index() {
               </div>
             </li>
           </ul>
-          <Button size="lg" className="rounded-xl px-8 h-12 text-lg font-bold">
-            Start Guided Experience
-          </Button>
+          <Link to="/freshers">
+            <Button size="lg" className="rounded-xl px-8 h-12 text-lg font-bold">
+              Start Guided Experience
+            </Button>
+          </Link>
         </div>
         <div className="relative aspect-square rounded-3xl overflow-hidden shadow-2xl border-8 border-background">
            <div className="absolute inset-0 bg-primary/10 flex items-center justify-center">
@@ -180,9 +186,11 @@ export default function Index() {
             Sync your course timetable and get notifications before class starts. We even tell you exactly when to leave based on your current location and walking speed.
           </p>
           <div className="pt-4">
-            <Button className="w-full md:w-auto bg-white text-primary hover:bg-white/90 h-12 rounded-xl font-bold text-lg border-none">
-              Add My Courses
-            </Button>
+            <Link to="/timetable">
+              <Button className="w-full md:w-auto bg-white text-primary hover:bg-white/90 h-12 rounded-xl font-bold text-lg border-none">
+                Add My Courses
+              </Button>
+            </Link>
           </div>
         </div>
 
@@ -195,21 +203,25 @@ export default function Index() {
             One tap for immediate help. Connect directly to FUTA Security, the Health Centre, or Fire Service. Your live location is shared automatically.
           </p>
           <div className="pt-4">
-            <Button className="w-full md:w-auto bg-white text-destructive hover:bg-white/90 h-12 rounded-xl font-bold text-lg border-none">
-              Open Emergency Panel
-            </Button>
+            <Link to="/emergency">
+              <Button className="w-full md:w-auto bg-white text-destructive hover:bg-white/90 h-12 rounded-xl font-bold text-lg border-none">
+                Open Emergency Panel
+              </Button>
+            </Link>
           </div>
         </div>
       </section>
 
       {/* Floating Emergency Button (Mobile/Desktop Always) */}
-      <Button
-        size="lg"
-        className="fixed bottom-6 right-6 h-16 w-16 rounded-full bg-destructive text-destructive-foreground shadow-2xl z-50 hover:bg-destructive/90 animate-bounce"
-        title="Emergency Assistance"
-      >
-        <Phone className="h-8 w-8" />
-      </Button>
+      <Link to="/emergency">
+        <Button
+          size="lg"
+          className="fixed bottom-6 right-6 h-16 w-16 rounded-full bg-destructive text-destructive-foreground shadow-2xl z-50 hover:bg-destructive/90 animate-bounce"
+          title="Emergency Assistance"
+        >
+          <Phone className="h-8 w-8" />
+        </Button>
+      </Link>
     </Layout>
   );
 }

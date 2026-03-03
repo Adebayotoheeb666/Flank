@@ -1,14 +1,242 @@
+import { useState, useEffect } from "react";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
-import { Phone, Shield, Activity, Flame, ArrowLeft, Navigation } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import {
+  Phone, Shield, Activity, Flame, ArrowLeft, Navigation,
+  MapPin, AlertCircle, Send, Clock, Users, CheckCircle,
+  Share2, AlertTriangle, Loader
+} from "lucide-react";
 import { Link } from "react-router-dom";
+import { cn } from "@/lib/utils";
+
+interface EmergencySOSType {
+  id: string;
+  title: string;
+  icon: any;
+  color: string;
+  description: string;
+}
 
 export default function EmergencyPage() {
+  const [selectedSOS, setSelectedSOS] = useState<string | null>(null);
+  const [isLocationActive, setIsLocationActive] = useState(false);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [sosActive, setSOSActive] = useState(false);
+  const [sosStartTime, setSOSStartTime] = useState<Date | null>(null);
+  const [respondersCount, setRespondersCount] = useState(0);
+
+  const sosTypes: EmergencySOSType[] = [
+    {
+      id: "medical",
+      title: "Medical Emergency",
+      icon: Activity,
+      color: "bg-red-600 hover:bg-red-700",
+      description: "Accident, injury, or health issue"
+    },
+    {
+      id: "fire",
+      title: "Fire/Evacuation",
+      icon: Flame,
+      color: "bg-orange-600 hover:bg-orange-700",
+      description: "Fire, smoke, or evacuation needed"
+    },
+    {
+      id: "security",
+      title: "Security Threat",
+      icon: Shield,
+      color: "bg-blue-600 hover:bg-blue-700",
+      description: "Theft, assault, or suspicious activity"
+    },
+  ];
+
   const contacts = [
     { title: "FUTA Security", phone: "0801-234-5678", icon: Shield, color: "bg-blue-600" },
     { title: "Health Centre", phone: "0802-345-6789", icon: Activity, color: "bg-red-600" },
     { title: "Fire Service", phone: "0803-456-7890", icon: Flame, color: "bg-orange-600" },
   ];
+
+  // Get user location
+  useEffect(() => {
+    if (isLocationActive && navigator.geolocation) {
+      const watchId = navigator.geolocation.watchPosition(
+        (position) => {
+          setUserLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          });
+        },
+        (error) => console.error("Location error:", error)
+      );
+
+      return () => navigator.geolocation.clearWatch(watchId);
+    }
+  }, [isLocationActive]);
+
+  // Simulate responder arrival
+  useEffect(() => {
+    if (sosActive) {
+      const interval = setInterval(() => {
+        setRespondersCount(prev => (prev < 3 ? prev + 1 : prev));
+      }, 3000);
+
+      return () => clearInterval(interval);
+    }
+  }, [sosActive]);
+
+  const triggerSOS = (sosTypeId: string) => {
+    setSelectedSOS(sosTypeId);
+    setSOSActive(true);
+    setSOSStartTime(new Date());
+    setIsLocationActive(true);
+
+    // In a real app, this would trigger API call to Supabase
+    console.log(`SOS triggered for: ${sosTypeId}`);
+  };
+
+  const cancelSOS = () => {
+    setSOSActive(false);
+    setSelectedSOS(null);
+    setSOSStartTime(null);
+    setRespondersCount(0);
+    setIsLocationActive(false);
+  };
+
+  const getCurrentSOSType = () => sosTypes.find(sos => sos.id === selectedSOS);
+
+  // If SOS is active, show live responder status
+  if (sosActive && selectedSOS) {
+    const currentSOS = getCurrentSOSType();
+    const elapsedTime = sosStartTime
+      ? Math.floor((new Date().getTime() - sosStartTime.getTime()) / 1000)
+      : 0;
+
+    return (
+      <Layout>
+        <div className="container py-12 space-y-8 animate-in fade-in duration-500">
+          {/* SOS Active Header */}
+          <div className="text-center space-y-4">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-red-100 text-red-700 font-bold text-sm uppercase tracking-wider animate-pulse">
+              <AlertTriangle className="h-4 w-4" />
+              <span>SOS Active</span>
+            </div>
+            <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-red-600">
+              {currentSOS?.title}
+            </h1>
+          </div>
+
+          {/* Live Status Grid */}
+          <div className="grid md:grid-cols-3 gap-6">
+            {/* Responders */}
+            <Card className="p-6 space-y-4 border-green-200 bg-green-50">
+              <div className="flex items-center gap-3">
+                <Users className="h-5 w-5 text-green-600" />
+                <h3 className="font-bold">Responders Coming</h3>
+              </div>
+              <div className="space-y-2">
+                {Array.from({ length: respondersCount }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-2 p-3 bg-white rounded-lg border border-green-200">
+                    <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse" />
+                    <span className="text-sm font-medium">Responder {i + 1} En Route</span>
+                  </div>
+                ))}
+                {respondersCount < 3 && (
+                  <div className="flex items-center gap-2 p-3 bg-white rounded-lg border border-dashed border-green-300 animate-pulse">
+                    <Loader className="h-4 w-4 text-green-500 animate-spin" />
+                    <span className="text-sm text-muted-foreground">Notifying responders...</span>
+                  </div>
+                )}
+              </div>
+            </Card>
+
+            {/* Location Sharing */}
+            <Card className="p-6 space-y-4 border-blue-200 bg-blue-50">
+              <div className="flex items-center gap-3">
+                <MapPin className="h-5 w-5 text-blue-600" />
+                <h3 className="font-bold">Live Location</h3>
+              </div>
+              {userLocation && (
+                <div className="space-y-2">
+                  <div className="bg-white p-3 rounded-lg border border-blue-200">
+                    <p className="text-xs text-muted-foreground">Latitude</p>
+                    <p className="font-mono text-sm font-semibold">{userLocation.lat.toFixed(4)}</p>
+                  </div>
+                  <div className="bg-white p-3 rounded-lg border border-blue-200">
+                    <p className="text-xs text-muted-foreground">Longitude</p>
+                    <p className="font-mono text-sm font-semibold">{userLocation.lng.toFixed(4)}</p>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-blue-700 bg-white p-2 rounded border border-blue-200">
+                    <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                    Sharing live location with responders
+                  </div>
+                </div>
+              )}
+            </Card>
+
+            {/* Timer */}
+            <Card className="p-6 space-y-4 border-purple-200 bg-purple-50">
+              <div className="flex items-center gap-3">
+                <Clock className="h-5 w-5 text-purple-600" />
+                <h3 className="font-bold">SOS Duration</h3>
+              </div>
+              <div className="space-y-2">
+                <div className="text-center p-4 bg-white rounded-lg border border-purple-200">
+                  <p className="text-3xl font-bold font-mono text-purple-600">
+                    {Math.floor(elapsedTime / 60)}:{String(elapsedTime % 60).padStart(2, "0")}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-2">Elapsed time</p>
+                </div>
+              </div>
+            </Card>
+          </div>
+
+          {/* Responder Details */}
+          <Card className="p-8 space-y-6 border-yellow-200 bg-yellow-50">
+            <div className="flex items-start gap-4">
+              <AlertCircle className="h-6 w-6 text-yellow-600 flex-shrink-0 mt-0.5" />
+              <div className="space-y-2">
+                <p className="font-bold text-yellow-900">Stay Calm</p>
+                <p className="text-sm text-yellow-700">
+                  Responders have been notified and are on their way. Remain in a safe location and keep your phone visible.
+                  Your live location is being shared with FUTA Security and emergency services.
+                </p>
+              </div>
+            </div>
+          </Card>
+
+          {/* Emergency Contacts */}
+          <div className="space-y-4">
+            <h2 className="text-2xl font-bold">Direct Contacts</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {contacts.map((contact) => (
+                <Button
+                  key={contact.title}
+                  size="lg"
+                  className={`${contact.color} h-14 rounded-xl text-white font-bold gap-3`}
+                >
+                  <Phone className="h-5 w-5" />
+                  {contact.title}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          {/* Cancel SOS */}
+          <div className="flex justify-center pt-4">
+            <Button
+              onClick={cancelSOS}
+              variant="outline"
+              size="lg"
+              className="rounded-xl h-12 px-8 font-bold border-red-300 text-red-600 hover:bg-red-50"
+            >
+              Cancel SOS
+            </Button>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
@@ -20,28 +248,60 @@ export default function EmergencyPage() {
           </div>
           <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight">Need Immediate Help?</h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            One-tap assistance for any emergency on campus. Your live location is automatically shared with responders.
+            One-tap SOS triggers for any emergency. Your live location is automatically shared with responders.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {contacts.map((contact) => (
-            <div key={contact.title} className="bg-card p-8 rounded-3xl shadow-xl border text-center space-y-6 group hover:-translate-y-1 transition-all">
-              <div className={`${contact.color} h-20 w-20 mx-auto rounded-3xl flex items-center justify-center text-white shadow-lg`}>
-                <contact.icon className="h-10 w-10" />
-              </div>
-              <div className="space-y-2">
-                <h3 className="text-2xl font-bold">{contact.title}</h3>
-                <p className="text-muted-foreground font-mono text-xl">{contact.phone}</p>
-              </div>
-              <Button size="lg" className={`${contact.color} w-full h-14 rounded-2xl text-lg font-bold gap-3 text-white`}>
-                <Phone className="h-6 w-6" />
-                Call Now
-              </Button>
-            </div>
-          ))}
+        {/* SOS Type Selection */}
+        <div className="space-y-4">
+          <h2 className="text-2xl font-bold text-center">What type of emergency?</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {sosTypes.map((sos) => {
+              const IconComponent = sos.icon;
+              return (
+                <button
+                  key={sos.id}
+                  onClick={() => triggerSOS(sos.id)}
+                  className={cn(
+                    "p-8 rounded-3xl text-white font-bold text-lg group hover:-translate-y-1 transition-all shadow-xl border-2 border-transparent",
+                    sos.color,
+                    "space-y-4 flex flex-col items-center justify-center min-h-[300px]"
+                  )}
+                >
+                  <IconComponent className="h-16 w-16 group-hover:scale-110 transition-transform" />
+                  <div className="space-y-2 text-center">
+                    <p className="text-xl font-extrabold">{sos.title}</p>
+                    <p className="text-sm font-medium opacity-90">{sos.description}</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
+        {/* Quick Contacts */}
+        <div className="space-y-4">
+          <h2 className="text-2xl font-bold text-center">Or Call Directly</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {contacts.map((contact) => (
+              <div key={contact.title} className="bg-card p-8 rounded-3xl shadow-xl border text-center space-y-6 group hover:-translate-y-1 transition-all">
+                <div className={`${contact.color} h-20 w-20 mx-auto rounded-3xl flex items-center justify-center text-white shadow-lg`}>
+                  <contact.icon className="h-10 w-10" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-2xl font-bold">{contact.title}</h3>
+                  <p className="text-muted-foreground font-mono text-xl">{contact.phone}</p>
+                </div>
+                <Button size="lg" className={`${contact.color} w-full h-14 rounded-2xl text-lg font-bold gap-3 text-white`}>
+                  <Phone className="h-6 w-6" />
+                  Call Now
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Nearest Safe Building */}
         <div className="bg-muted p-8 rounded-3xl border flex flex-col md:flex-row items-center justify-between gap-6 max-w-4xl mx-auto">
           <div className="flex items-center gap-6">
             <div className="bg-primary/10 h-16 w-16 rounded-2xl flex items-center justify-center">
@@ -60,10 +320,10 @@ export default function EmergencyPage() {
         </div>
 
         <div className="text-center pt-8">
-           <Link to="/" className="text-muted-foreground hover:text-primary flex items-center justify-center gap-2 transition-colors">
-             <ArrowLeft className="h-4 w-4" />
-             Back to Safety Home
-           </Link>
+          <Link to="/" className="text-muted-foreground hover:text-primary flex items-center justify-center gap-2 transition-colors">
+            <ArrowLeft className="h-4 w-4" />
+            Back to Home
+          </Link>
         </div>
       </div>
     </Layout>
