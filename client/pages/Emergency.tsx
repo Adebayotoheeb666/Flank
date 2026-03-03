@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { useAnalytics, trackNavigation } from "@/hooks/use-analytics";
+import { useUserId } from "@/hooks/use-auth";
 import {
   Phone, Shield, Activity, Flame, ArrowLeft, Navigation,
   MapPin, AlertCircle, Send, Clock, Users, CheckCircle,
@@ -33,6 +34,7 @@ export default function EmergencyPage() {
   // Track page analytics
   useAnalytics("emergency");
   const { toast } = useToast();
+  const userId = useUserId();
 
   const [selectedSOS, setSelectedSOS] = useState<string | null>(null);
   const [isLocationActive, setIsLocationActive] = useState(false);
@@ -169,8 +171,6 @@ export default function EmergencyPage() {
 
     try {
       setIsTriggering(true);
-      // TODO: Replace with authenticated user from Supabase Auth
-      const userId = localStorage.getItem("userId") || "student_demo_user";
       const sosRequest: SOSTriggerRequest = {
         sosType: sosTypeId as SOSType,
         latitude: userLocation.lat,

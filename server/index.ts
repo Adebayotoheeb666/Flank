@@ -36,6 +36,27 @@ import {
   getRawAnalytics
 } from "./routes/analytics";
 import { getGuidance } from "./routes/guidance";
+import {
+  handleGetShortcuts,
+  handleReportShortcut,
+  handleVerifyShortcut,
+  handleGetShortcutsBetween
+} from "./routes/shortcuts";
+import {
+  handleScheduleReminder,
+  handleGetPendingReminders,
+  handleMarkReminderSent,
+  handleDismissReminder,
+  handleGetAllReminders,
+  handleSendBatchNotifications
+} from "./routes/notifications";
+import {
+  handleGetTourBuildings,
+  handleGetTourBuilding,
+  handleCreateTourBuilding,
+  handleGetHighlights,
+  handleLogTourView
+} from "./routes/virtual-tour";
 
 export function createServer() {
   const app = express();
@@ -92,6 +113,27 @@ export function createServer() {
 
   // Phase 3: Guidance Routes (Freshers Mode)
   app.get("/api/guidance", getGuidance);
+
+  // Phase 2: Shortcut Detection Routes
+  app.get("/api/shortcuts", handleGetShortcuts);
+  app.post("/api/shortcuts/report", handleReportShortcut);
+  app.post("/api/shortcuts/:id/verify", handleVerifyShortcut);
+  app.get("/api/shortcuts/between/:startLocationId/:endLocationId", handleGetShortcutsBetween);
+
+  // Phase 3: Push Notification Routes
+  app.post("/api/notifications/schedule", handleScheduleReminder);
+  app.get("/api/notifications/:studentId/pending", handleGetPendingReminders);
+  app.post("/api/notifications/:reminderId/mark-sent", handleMarkReminderSent);
+  app.post("/api/notifications/:reminderId/dismiss", handleDismissReminder);
+  app.get("/api/notifications/:studentId/all", handleGetAllReminders);
+  app.post("/api/notifications/send-batch", handleSendBatchNotifications);
+
+  // Phase 5: Virtual Tour Routes
+  app.get("/api/virtual-tour/buildings", handleGetTourBuildings);
+  app.get("/api/virtual-tour/buildings/:buildingId", handleGetTourBuilding);
+  app.post("/api/virtual-tour/buildings", handleCreateTourBuilding);
+  app.get("/api/virtual-tour/highlights", handleGetHighlights);
+  app.post("/api/virtual-tour/buildings/:buildingId/view", handleLogTourView);
 
   return app;
 }

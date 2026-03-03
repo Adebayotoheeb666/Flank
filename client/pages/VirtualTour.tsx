@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAnalytics } from "@/hooks/use-analytics";
+import { useUserId } from "@/hooks/use-auth";
 import {
   ChevronLeft, ChevronRight, MapPin, Users, BookOpen, Clock,
-  Star, Building2, ArrowLeft, Info, ImagePlay, Play, Volume2, X, RotateCw
+  Star, Building2, ArrowLeft, Info, ImagePlay, Play, Volume2, X, RotateCw, Loader
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
@@ -136,21 +137,72 @@ const CAMPUS_BUILDINGS: Building[] = [
 
 export default function VirtualTourPage() {
   useAnalytics("virtual_tour");
+  const userId = useUserId();
 
-  const [selectedBuilding, setSelectedBuilding] = useState<Building>(CAMPUS_BUILDINGS[0]);
+  const [buildings, setBuildings] = useState<Building[]>(CAMPUS_BUILDINGS);
+  const [selectedBuilding, setSelectedBuilding] = useState<Building | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [viewMode, setViewMode] = useState<"gallery" | "panorama">("gallery");
   const [showVideo, setShowVideo] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch buildings from API
+  useEffect(() => {
+    const fetchBuildings = async () => {
+      try {
+        const response = await fetch("/api/virtual-tour/buildings");
+        if (response.ok) {
+          const data = await response.json();
+          if (data && data.length > 0) {
+            setBuildings(data);
+            setSelectedBuilding(data[0]);
+          } else {
+            // Use fallback if no data from API
+            setSelectedBuilding(CAMPUS_BUILDINGS[0]);
+          }
+        } else {
+          setSelectedBuilding(CAMPUS_BUILDINGS[0]);
+        }
+      } catch (error) {
+        console.error("Failed to fetch buildings:", error);
+        setSelectedBuilding(CAMPUS_BUILDINGS[0]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchBuildings();
+  }, []);
+
+  // Log tour view when building is selected
+  useEffect(() => {
+    if (selectedBuilding && userId) {
+      const logView = async () => {
+        try {
+          await fetch(`/api/virtual-tour/buildings/${selectedBuilding.id}/view`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId })
+          });
+        } catch (error) {
+          console.error("Failed to log view:", error);
+        }
+      };
+      logView();
+    }
+  }, [selectedBuilding?.id, userId]);
 
   const handlePrevImage = () => {
+    if (!selectedBuilding?.images) return;
     setCurrentImageIndex((prev) =>
-      prev === 0 ? selectedBuilding.images.length - 1 : prev - 1
+      prev === 0 ? selectedBuilding.images!.length - 1 : prev - 1
     );
   };
 
   const handleNextImage = () => {
+    if (!selectedBuilding?.images) return;
     setCurrentImageIndex((prev) =>
-      prev === selectedBuilding.images.length - 1 ? 0 : prev + 1
+      prev === selectedBuilding.images!.length - 1 ? 0 : prev + 1
     );
   };
 
