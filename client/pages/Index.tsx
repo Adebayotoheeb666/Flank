@@ -180,7 +180,7 @@ export default function Index() {
             Sync your course timetable and get notifications before class starts. We even tell you exactly when to leave based on your current location and walking speed.
           </p>
           <div className="pt-4">
-            <Button variant="outline" className="w-full md:w-auto border-primary-foreground/40 hover:bg-primary-foreground/10 text-primary-foreground h-12 rounded-xl font-bold text-lg">
+            <Button className="w-full md:w-auto bg-white text-primary hover:bg-white/90 h-12 rounded-xl font-bold text-lg border-none">
               Add My Courses
             </Button>
           </div>
@@ -195,7 +195,7 @@ export default function Index() {
             One tap for immediate help. Connect directly to FUTA Security, the Health Centre, or Fire Service. Your live location is shared automatically.
           </p>
           <div className="pt-4">
-            <Button variant="outline" className="w-full md:w-auto border-destructive-foreground/40 hover:bg-destructive-foreground/10 text-destructive-foreground h-12 rounded-xl font-bold text-lg">
+            <Button className="w-full md:w-auto bg-white text-destructive hover:bg-white/90 h-12 rounded-xl font-bold text-lg border-none">
               Open Emergency Panel
             </Button>
           </div>

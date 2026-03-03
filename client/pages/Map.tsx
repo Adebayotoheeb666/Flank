@@ -14,15 +14,15 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Location } from "@shared/api";
 import { RouteResponse, RouteStep } from "@shared/navigation";
-import mapboxgl from "mapbox-gl";
-import "mapbox-gl/dist/mapbox-gl.css";
+import maplibregl from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
 
 // FUTA Central Coordinates
 const FUTA_CENTER: [number, number] = [5.1300, 7.3000];
 
 export default function MapPage() {
   const mapContainer = useRef<HTMLDivElement>(null);
-  const map = useRef<mapboxgl.Map | null>(null);
+  const map = useRef<maplibregl.Map | null>(null);
   const [locations, setLocations] = useState<Location[]>([]);
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -32,28 +32,26 @@ export default function MapPage() {
   const [loading, setLoading] = useState(true);
   const [route, setRoute] = useState<RouteResponse | null>(null);
   const [preferFlat, setPreferFlat] = useState(false);
-  const markers = useRef<Record<string, mapboxgl.Marker>>({});
+  const markers = useRef<Record<string, maplibregl.Marker>>({});
 
-  // Initialize Mapbox
+  // Initialize MapLibre (for MapTiler)
   useEffect(() => {
     if (map.current) return; // initialize map only once
 
-    const token = (import.meta as any).env?.VITE_MAPBOX_TOKEN || "REPLACE_ENV.MAPBOX_TOKEN";
+    const apiKey = (import.meta as any).env?.VITE_MAPTILER_API_KEY || "REPLACE_ENV.MAPTILER_API_KEY";
 
-    if (token === "REPLACE_ENV.MAPBOX_TOKEN") {
-      console.error("Mapbox token is missing! Please add VITE_MAPBOX_TOKEN to your environment variables.");
+    if (apiKey === "REPLACE_ENV.MAPTILER_API_KEY") {
+      console.error("MapTiler API Key is missing! Please add VITE_MAPTILER_API_KEY to your environment variables.");
     }
 
-    mapboxgl.accessToken = token;
-
-    map.current = new mapboxgl.Map({
+    map.current = new maplibregl.Map({
       container: mapContainer.current!,
-      style: "mapbox://styles/mapbox/streets-v12",
+      style: `https://api.maptiler.com/maps/streets-v2/style.json?key=${apiKey}`,
       center: FUTA_CENTER,
       zoom: 15,
     });
 
-    map.current.addControl(new mapboxgl.NavigationControl(), "top-right");
+    map.current.addControl(new maplibregl.NavigationControl(), "top-right");
 
     return () => {
       map.current?.remove();
@@ -85,7 +83,7 @@ export default function MapPage() {
       pin.appendChild(dot);
       el.appendChild(pin);
 
-      const marker = new mapboxgl.Marker(el)
+      const marker = new maplibregl.Marker({ element: el })
         .setLngLat([loc.coordinates.lng, loc.coordinates.lat])
         .addTo(map.current!);
 
@@ -163,7 +161,7 @@ export default function MapPage() {
       // Draw route on map
       if (map.current) {
         if (map.current.getSource('route')) {
-          (map.current.getSource('route') as mapboxgl.GeoJSONSource).setData({
+          (map.current.getSource('route') as maplibregl.GeoJSONSource).setData({
             type: 'Feature',
             properties: {},
             geometry: {
@@ -216,7 +214,7 @@ export default function MapPage() {
         }
 
         // Fit bounds to route
-        const bounds = new mapboxgl.LngLatBounds();
+        const bounds = new maplibregl.LngLatBounds();
         data.path.forEach(coord => bounds.extend(coord as [number, number]));
         map.current.fitBounds(bounds, { padding: 50 });
       }
