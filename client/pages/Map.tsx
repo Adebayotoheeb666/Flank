@@ -81,12 +81,12 @@ export default function MapPage() {
   useEffect(() => {
     if (map.current || !mapContainer.current) return;
 
-    // Use env variable with priority
-    const apiKey = import.meta.env.VITE_MAPTILER_API_KEY || "mdXYRN4uUQxepxwuNS84";
+    // Use env variable ONLY, do not fallback to a hardcoded key
+    const apiKey = import.meta.env.VITE_MAPTILER_API_KEY;
 
-    if (!apiKey || apiKey === "__MAPTILER_API_KEY__") {
-      console.warn("MapTiler API Key is missing or default. Map will not load.");
-      setDebugInfo({ keyStatus: "missing/default" });
+    if (!apiKey) {
+      console.warn("MapTiler API Key is missing. Map will not load.");
+      setDebugInfo({ keyStatus: "missing" });
       return;
     }
 
