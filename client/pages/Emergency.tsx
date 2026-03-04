@@ -467,22 +467,24 @@ export default function EmergencyPage() {
         </div>
 
         {/* Nearest Safe Building */}
-        <div className="bg-muted p-8 rounded-3xl border flex flex-col md:flex-row items-center justify-between gap-6 max-w-4xl mx-auto">
-          <div className="flex items-center gap-6">
-            <div className="bg-primary/10 h-16 w-16 rounded-2xl flex items-center justify-center">
-              <Navigation className="h-8 w-8 text-primary" />
+        {userLocation && (
+          <div className="bg-muted p-8 rounded-3xl border flex flex-col md:flex-row items-center justify-between gap-6 max-w-4xl mx-auto">
+            <div className="flex items-center gap-6">
+              <div className="bg-primary/10 h-16 w-16 rounded-2xl flex items-center justify-center">
+                <Navigation className="h-8 w-8 text-primary" />
+              </div>
+              <div>
+                <h4 className="font-bold text-xl">Quick Navigation</h4>
+                <p className="text-muted-foreground">Find nearest help or safe zone on the map</p>
+              </div>
             </div>
-            <div>
-              <h4 className="font-bold text-xl">Nearest Safe Building</h4>
-              <p className="text-muted-foreground">Senate Building (250m away)</p>
-            </div>
+            <Link to="/map">
+              <Button size="lg" className="rounded-xl h-12 px-8 font-bold">
+                Open Map
+              </Button>
+            </Link>
           </div>
-          <Link to="/map?id=senate">
-            <Button size="lg" className="rounded-xl h-12 px-8 font-bold">
-              Navigate There
-            </Button>
-          </Link>
-        </div>
+        )}
 
         <div className="text-center pt-8">
           <Link to="/" className="text-muted-foreground hover:text-primary flex items-center justify-center gap-2 transition-colors">

@@ -4,17 +4,18 @@ import { supabase } from "../../shared/supabase";
 export interface VirtualTourBuilding {
   id: string;
   name: string;
-  shortName: string;
-  category: "school" | "admin" | "facility" | "landmark";
-  image: string;
-  panoramaImage?: string;
-  videoUrl?: string;
+  short_name?: string;
+  category: string;
+  image_url: string;
+  image_gallery?: string[];
+  panorama_url?: string;
+  video_url?: string;
   description: string;
   history: string;
-  academicDepts: string[];
+  academic_depts: string[];
   facilities: string[];
-  studentCapacity?: number;
-  yearBuilt?: number;
+  student_capacity?: number;
+  year_built?: number;
   coordinates: { lat: number; lng: number };
 }
 
@@ -98,17 +99,17 @@ export const handleCreateTourBuilding: RequestHandler = async (req, res) => {
       .insert([
         {
           name: building.name,
-          short_name: building.shortName,
+          short_name: building.short_name,
           category: building.category,
-          image: building.image,
-          panorama_image: building.panoramaImage,
-          video_url: building.videoUrl,
+          image_url: building.image_url,
+          panorama_url: building.panorama_url,
+          video_url: building.video_url,
           description: building.description,
           history: building.history,
-          academic_depts: building.academicDepts,
+          academic_depts: building.academic_depts,
           facilities: building.facilities,
-          student_capacity: building.studentCapacity,
-          year_built: building.yearBuilt,
+          student_capacity: building.student_capacity,
+          year_built: building.year_built,
           coordinates: building.coordinates
         }
       ])

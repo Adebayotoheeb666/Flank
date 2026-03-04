@@ -173,7 +173,7 @@ export interface PageViewEvent {
   page: string;
   timestamp?: string;
   duration?: number;
-  userId?: string;
+  visitorId: string;
 }
 
 export interface NavigationEvent {
@@ -183,7 +183,14 @@ export interface NavigationEvent {
   timestamp?: string;
   distanceMeters?: number;
   duration?: number;
-  method: "user_search" | "map_click" | "recommendation";
+  visitorId: string;
+  method: "user_search" | "map_click" | "recommendation" | "route_reminder" | "emergency_sos" | "form_submission";
+}
+
+export interface SearchEvent {
+  query: string;
+  timestamp?: string;
+  visitorId: string;
 }
 
 export interface DestinationAnalytics {

@@ -22,10 +22,8 @@ interface SearchEvent {
   timestamp: string;
 }
 
-// Fallback in-memory storage (for when Supabase tables are not available)
-const pageViews: PageViewEvent[] = [];
-const navigationEvents: NavigationEventData[] = [];
-const searchQueries: SearchEvent[] = [];
+// Analytics data is now strictly persisted to Supabase
+// No in-memory fallbacks allowed to ensure data consistency
 
 /**
  * Track page view
@@ -34,30 +32,31 @@ const searchQueries: SearchEvent[] = [];
  */
 export const trackPageView: RequestHandler = async (req, res) => {
   try {
-    const { page, timestamp } = req.body;
+    const { page, timestamp, visitorId } = req.body;
 
-    if (!page) {
-      return res.status(400).json({ error: "Missing page name" });
+    if (!page || !visitorId) {
+      return res.status(400).json({ error: "Missing required fields" });
     }
 
     const pageViewData = {
       page,
+      visitor_id: visitorId,
       timestamp: timestamp || new Date().toISOString(),
     };
 
-    // Try to save to Supabase if available
+    // Save to Supabase
     if (supabase) {
       const { error } = await supabase
         .from("page_views")
-        .insert([pageViewData])
-        .catch(() => ({ error: "Supabase not available" }));
+        .insert([pageViewData]);
 
       if (error) {
-        console.warn("Failed to save page view to Supabase, using in-memory storage:", error);
-        pageViews.push(pageViewData);
+        console.error("Failed to save page view to Supabase:", error);
+        return res.status(500).json({ error: "Failed to log page view" });
       }
     } else {
-      pageViews.push(pageViewData);
+      console.error("Supabase client not available");
+      return res.status(503).json({ error: "Service unavailable" });
     }
 
     res.json({ tracked: true });
@@ -71,19 +70,41 @@ export const trackPageView: RequestHandler = async (req, res) => {
  * Track page exit
  * POST /api/analytics/page-exit
  */
-export const trackPageExit: RequestHandler = (req, res) => {
+export const trackPageExit: RequestHandler = async (req, res) => {
   try {
-    const { page, duration, timestamp } = req.body;
+    const { page, duration, visitorId } = req.body;
 
-    if (!page) {
-      return res.status(400).json({ error: "Missing page name" });
+    if (!page || !visitorId) {
+      return res.status(400).json({ error: "Missing required fields" });
     }
 
-    // Update the last page view with duration
-    for (let i = pageViews.length - 1; i >= 0; i--) {
-      if (pageViews[i].page === page && !pageViews[i].duration) {
-        pageViews[i].duration = duration;
-        break;
+    if (!supabase) return res.status(503).json({ error: "Service unavailable" });
+
+    // Update the most recent page view for this visitor and page that doesn't have a duration
+    const { data: latestView, error: fetchError } = await supabase
+      .from("page_views")
+      .select("id")
+      .eq("page", page)
+      .eq("visitor_id", visitorId)
+      .is("duration", null)
+      .order("timestamp", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (fetchError) {
+      console.error("Failed to fetch latest view:", fetchError);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+
+    if (latestView) {
+      const { error: updateError } = await supabase
+        .from("page_views")
+        .update({ duration })
+        .eq("id", latestView.id);
+
+      if (updateError) {
+        console.error("Failed to update page exit duration:", updateError);
+        return res.status(500).json({ error: "Failed to log page exit" });
       }
     }
 
@@ -97,40 +118,36 @@ export const trackPageExit: RequestHandler = (req, res) => {
 /**
  * Track navigation
  * POST /api/analytics/navigation
- * TODO: Persist to Supabase once navigation_events table is created
  */
 export const trackNavigation: RequestHandler = async (req, res) => {
   try {
-    const { from, to, method, distanceMeters, duration, timestamp } = req.body;
+    const { from, to, method, distanceMeters, visitorId, timestamp } = req.body;
 
-    if (!from || !to || !method) {
+    if (!from || !to || !method || !visitorId) {
       return res.status(400).json({
-        error: "Missing required fields: from, to, method",
+        error: "Missing required fields: from, to, method, visitorId",
       });
     }
 
-    const navigationData = {
-      from,
-      to,
-      method,
-      distanceMeters,
-      duration,
-      timestamp: timestamp || new Date().toISOString(),
-    };
-
-    // Try to save to Supabase if available
+    // Save to Supabase
     if (supabase) {
       const { error } = await supabase
         .from("navigation_events")
-        .insert([navigationData])
-        .catch(() => ({ error: "Supabase not available" }));
+        .insert([{
+          start_location: from,
+          end_location: to,
+          method,
+          distance: distanceMeters,
+          visitor_id: visitorId,
+          timestamp: timestamp || new Date().toISOString()
+        }]);
 
       if (error) {
-        console.warn("Failed to save navigation to Supabase, using in-memory storage:", error);
-        navigationEvents.push(navigationData);
+        console.error("Failed to save navigation event:", error);
+        return res.status(500).json({ error: "Failed to log navigation" });
       }
     } else {
-      navigationEvents.push(navigationData);
+      return res.status(503).json({ error: "Service unavailable" });
     }
 
     console.log(`[Analytics] Navigation tracked: ${from} -> ${to}`);
@@ -145,34 +162,33 @@ export const trackNavigation: RequestHandler = async (req, res) => {
 /**
  * Track search
  * POST /api/analytics/search
- * TODO: Persist to Supabase once search_events table is created
  */
 export const trackSearch: RequestHandler = async (req, res) => {
   try {
-    const { query, timestamp } = req.body;
+    const { query, timestamp, visitorId } = req.body;
 
-    if (!query) {
-      return res.status(400).json({ error: "Missing search query" });
+    if (!query || !visitorId) {
+      return res.status(400).json({ error: "Missing required fields" });
     }
 
     const searchData = {
       query: query.toLowerCase(),
+      visitor_id: visitorId,
       timestamp: timestamp || new Date().toISOString(),
     };
 
-    // Try to save to Supabase if available
+    // Save to Supabase
     if (supabase) {
       const { error } = await supabase
         .from("search_events")
-        .insert([searchData])
-        .catch(() => ({ error: "Supabase not available" }));
+        .insert([searchData]);
 
       if (error) {
-        console.warn("Failed to save search to Supabase, using in-memory storage:", error);
-        searchQueries.push(searchData);
+        console.error("Failed to save search to Supabase:", error);
+        return res.status(500).json({ error: "Failed to log search" });
       }
     } else {
-      searchQueries.push(searchData);
+      return res.status(503).json({ error: "Service unavailable" });
     }
 
     console.log(`[Analytics] Search tracked: "${query}"`);
@@ -188,23 +204,37 @@ export const trackSearch: RequestHandler = async (req, res) => {
  * Get analytics dashboard data
  * GET /api/analytics/dashboard
  */
-export const getAnalyticsDashboard: RequestHandler = (req, res) => {
+export const getAnalyticsDashboard: RequestHandler = async (req, res) => {
   try {
-    // Calculate metrics
-    const totalPageViews = pageViews.length;
-    const totalNavigations = navigationEvents.length;
+    if (!supabase) return res.status(503).json({ error: "Service unavailable" });
+
+    // Fetch metrics from Supabase
+    const { count: totalPageViews } = await supabase.from("page_views").select("*", { count: "exact", head: true });
+    const { count: totalNavigations } = await supabase.from("navigation_events").select("*", { count: "exact", head: true });
+
+    const { data: viewsData, error: viewsError } = await supabase
+      .from("page_views")
+      .select("duration, visitor_id, page");
+
+    if (viewsError) throw viewsError;
+
     const averageSessionDuration = Math.round(
-      pageViews.reduce((sum, pv) => sum + (pv.duration || 0), 0) / Math.max(pageViews.length, 1)
+      (viewsData || []).reduce((sum, pv) => sum + (pv.duration || 0), 0) / Math.max(viewsData?.length || 1, 1)
     );
-    const uniqueVisitors = new Set(
-      pageViews.map((_, i) => `visitor-${Math.floor(i / 5)}`)
-    ).size; // Mock unique visitors
+
+    const uniqueVisitors = new Set((viewsData || []).map(pv => pv.visitor_id)).size;
 
     // Get most visited destinations
+    const { data: navData, error: navError } = await supabase
+      .from("navigation_events")
+      .select("end_location");
+
+    if (navError) throw navError;
+
     const destinationMap = new Map<string, DestinationAnalytics>();
 
-    navigationEvents.forEach((nav) => {
-      const key = nav.to;
+    (navData || []).forEach((nav) => {
+      const key = nav.end_location;
       const existing = destinationMap.get(key) || {
         buildingId: key,
         buildingName: key,
@@ -218,7 +248,7 @@ export const getAnalyticsDashboard: RequestHandler = (req, res) => {
     });
 
     // Calculate visit counts from page views
-    pageViews.forEach((pv) => {
+    (viewsData || []).forEach((pv) => {
       if (pv.page !== "/" && pv.page !== "/index") {
         const key = pv.page.replace(/\//g, "");
         const existing = destinationMap.get(key) || {
@@ -247,8 +277,14 @@ export const getAnalyticsDashboard: RequestHandler = (req, res) => {
       .slice(0, 10);
 
     // Get top search queries
+    const { data: searchData, error: searchError } = await supabase
+      .from("search_events")
+      .select("query");
+
+    if (searchError) throw searchError;
+
     const searchMap = new Map<string, number>();
-    searchQueries.forEach((sq) => {
+    (searchData || []).forEach((sq) => {
       searchMap.set(sq.query, (searchMap.get(sq.query) || 0) + 1);
     });
 
@@ -258,8 +294,8 @@ export const getAnalyticsDashboard: RequestHandler = (req, res) => {
       .slice(0, 10);
 
     const dashboard: AnalyticsDashboard = {
-      totalPageViews,
-      totalNavigations,
+      totalPageViews: totalPageViews || 0,
+      totalNavigations: totalNavigations || 0,
       mostVisitedDestinations,
       averageSessionDuration,
       uniqueVisitors,
@@ -284,16 +320,24 @@ export const getAnalyticsDashboard: RequestHandler = (req, res) => {
  * Get raw analytics data (for detailed analysis)
  * GET /api/analytics/raw
  */
-export const getRawAnalytics: RequestHandler = (req, res) => {
+export const getRawAnalytics: RequestHandler = async (req, res) => {
   try {
+    if (!supabase) return res.status(503).json({ error: "Service unavailable" });
+
+    const [pv, nav, search] = await Promise.all([
+      supabase.from("page_views").select("*"),
+      supabase.from("navigation_events").select("*"),
+      supabase.from("search_events").select("*")
+    ]);
+
     res.json({
-      pageViews,
-      navigationEvents,
-      searchQueries,
+      pageViews: pv.data || [],
+      navigationEvents: nav.data || [],
+      searchQueries: search.data || [],
       total: {
-        pageViews: pageViews.length,
-        navigationEvents: navigationEvents.length,
-        searchQueries: searchQueries.length,
+        pageViews: (pv.data || []).length,
+        navigationEvents: (nav.data || []).length,
+        searchQueries: (search.data || []).length,
       },
     });
   } catch (error) {

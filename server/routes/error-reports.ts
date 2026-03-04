@@ -2,8 +2,7 @@ import { RequestHandler } from "express";
 import { MapErrorReport, MapErrorReportResponse } from "@shared/api";
 import { supabase } from "../../shared/supabase";
 
-// Fallback in-memory storage (for when Supabase table is not available)
-const errorReports: MapErrorReport[] = [];
+// Error reports are now strictly persisted to Supabase
 
 /**
  * Submit a new error report
@@ -31,19 +30,19 @@ export const submitErrorReport: RequestHandler = async (req, res) => {
       createdAt: new Date().toISOString()
     };
 
-    // Try to save to Supabase if available
+    // Save to Supabase
     if (supabase) {
       const { error } = await supabase
         .from("error_reports")
-        .insert([newReport])
-        .catch(() => ({ error: "Supabase not available" }));
+        .insert([newReport]);
 
       if (error) {
-        console.warn("Failed to save error report to Supabase, using in-memory storage:", error);
-        errorReports.push(newReport);
+        console.error("Failed to save error report to Supabase:", error);
+        return res.status(500).json({ error: "Failed to submit error report" });
       }
     } else {
-      errorReports.push(newReport);
+      console.error("Supabase client not available");
+      return res.status(503).json({ error: "Service unavailable" });
     }
 
     console.log(`[Error Report] New report submitted: ${newReport.id}`, {
@@ -73,14 +72,22 @@ export const submitErrorReport: RequestHandler = async (req, res) => {
  * Get all error reports (admin endpoint)
  * GET /api/error-reports
  */
-export const getErrorReports: RequestHandler = (req, res) => {
+export const getErrorReports: RequestHandler = async (req, res) => {
   try {
-    // Count resolved reports
-    const resolvedCount = errorReports.filter(r => r.status === "resolved").length;
+    if (!supabase) return res.status(503).json({ error: "Service unavailable" });
+
+    const { data: reports, error } = await supabase
+      .from("error_reports")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+
+    const resolvedCount = (reports || []).filter((r: any) => r.status === "resolved").length;
 
     res.json({
-      reports: errorReports,
-      total: errorReports.length,
+      reports: reports || [],
+      total: (reports || []).length,
       resolved: resolvedCount
     });
   } catch (error) {
@@ -97,12 +104,18 @@ export const getErrorReports: RequestHandler = (req, res) => {
  * Get a specific error report
  * GET /api/error-reports/:reportId
  */
-export const getErrorReport: RequestHandler = (req, res) => {
+export const getErrorReport: RequestHandler = async (req, res) => {
   try {
     const { reportId } = req.params;
-    const report = errorReports.find(r => r.id === reportId);
+    if (!supabase) return res.status(503).json({ error: "Service unavailable" });
 
-    if (!report) {
+    const { data: report, error } = await supabase
+      .from("error_reports")
+      .select("*")
+      .eq("id", reportId)
+      .single();
+
+    if (error || !report) {
       return res.status(404).json({
         error: "Report not found"
       });
@@ -121,27 +134,30 @@ export const getErrorReport: RequestHandler = (req, res) => {
  * Update error report status (admin endpoint)
  * PATCH /api/error-reports/:reportId
  */
-export const updateErrorReport: RequestHandler = (req, res) => {
+export const updateErrorReport: RequestHandler = async (req, res) => {
   try {
     const { reportId } = req.params;
     const { status, resolution } = req.body;
+    if (!supabase) return res.status(503).json({ error: "Service unavailable" });
 
-    const report = errorReports.find(r => r.id === reportId);
-    if (!report) {
+    const updateData: any = {};
+    if (status) updateData.status = status;
+    if (resolution) {
+      updateData.resolution = resolution;
+      updateData.resolved_at = new Date().toISOString();
+    }
+
+    const { data: report, error } = await supabase
+      .from("error_reports")
+      .update(updateData)
+      .eq("id", reportId)
+      .select()
+      .single();
+
+    if (error || !report) {
       return res.status(404).json({
         error: "Report not found"
       });
-    }
-
-    // Update status
-    if (status) {
-      report.status = status;
-    }
-
-    // Add resolution if provided
-    if (resolution) {
-      report.resolution = resolution;
-      report.resolvedAt = new Date().toISOString();
     }
 
     console.log(`[Error Report] Report updated: ${reportId}`, {
@@ -162,18 +178,23 @@ export const updateErrorReport: RequestHandler = (req, res) => {
  * Delete error report (admin endpoint)
  * DELETE /api/error-reports/:reportId
  */
-export const deleteErrorReport: RequestHandler = (req, res) => {
+export const deleteErrorReport: RequestHandler = async (req, res) => {
   try {
     const { reportId } = req.params;
-    const index = errorReports.findIndex(r => r.id === reportId);
+    if (!supabase) return res.status(503).json({ error: "Service unavailable" });
 
-    if (index === -1) {
+    const { data: deletedReport, error } = await supabase
+      .from("error_reports")
+      .delete()
+      .eq("id", reportId)
+      .select()
+      .single();
+
+    if (error || !deletedReport) {
       return res.status(404).json({
         error: "Report not found"
       });
     }
-
-    const deletedReport = errorReports.splice(index, 1)[0];
 
     console.log(`[Error Report] Report deleted: ${reportId}`);
 

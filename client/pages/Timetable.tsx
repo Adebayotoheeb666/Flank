@@ -35,26 +35,26 @@ export default function TimetablePage() {
   const studentId = useUserId();
 
   // Fetch courses from API
-  useEffect(() => {
-    const fetchCourses = async () => {
-      try {
-        setLoadingCourses(true);
-        const response = await fetch(`/api/timetable/${studentId}`);
-        if (response.ok) {
-          const data = await response.json();
-          setCourses(data);
-        } else {
-          console.error("Failed to fetch courses:", response.status);
-          setCourses([]);
-        }
-      } catch (error) {
-        console.error("Error fetching courses:", error);
+  const fetchCourses = async () => {
+    try {
+      setLoadingCourses(true);
+      const response = await fetch(`/api/timetable/${studentId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setCourses(data.courses || []);
+      } else {
+        console.error("Failed to fetch courses:", response.status);
         setCourses([]);
-      } finally {
-        setLoadingCourses(false);
       }
-    };
+    } catch (error) {
+      console.error("Error fetching courses:", error);
+      setCourses([]);
+    } finally {
+      setLoadingCourses(false);
+    }
+  };
 
+  useEffect(() => {
     fetchCourses();
   }, [studentId]);
 
@@ -62,10 +62,23 @@ export default function TimetablePage() {
   const calculateRouteReminder = async (courseId: string, venue: string) => {
     try {
       setLoadingReminder(courseId);
+
+      // Get current location
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject);
+      });
+
+      const { latitude, longitude } = position.coords;
+
       const response = await fetch(`/api/timetable/${studentId}/reminder`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ courseId, studentId })
+        body: JSON.stringify({
+          courseId,
+          studentId,
+          latitude,
+          longitude
+        })
       });
 
       if (response.ok) {
@@ -73,7 +86,7 @@ export default function TimetablePage() {
         setReminders(prev => [...prev.filter(r => r.courseId !== courseId), {
           courseId,
           status: data.shouldLeaveNow ? "in-route" : "upcoming",
-          estimatedTime: data.estimatedTravelTime,
+          estimatedTime: Math.round(data.estimatedTravelTime / 60), // convert to minutes
           distanceMeters: data.distanceMeters
         }]);
 
@@ -89,55 +102,62 @@ export default function TimetablePage() {
     }
   };
 
-  // Simulate route reminders checking
+  // Periodically refresh reminders for upcoming courses
   useEffect(() => {
-    const checkReminders = () => {
-      const now = new Date();
-      const upcomingReminders = courses.map(course => {
-        // Mock calculation - in real app, check actual time
-        const courseTime = parseInt(course.time.split(":")[0]);
-        const currentHour = now.getHours();
-        const timeDiff = courseTime - currentHour;
+    if (courses.length === 0) return;
 
-        let status: "upcoming" | "in-route" | "completed" = "upcoming";
-        if (timeDiff < -1) status = "completed";
-        else if (timeDiff < course.notificationTime / 60) status = "in-route";
-
-        return {
-          courseId: course.id,
-          status,
-          estimatedTime: Math.max(0, timeDiff * 60 + 20),
-          distanceMeters: 350
-        };
+    const refreshReminders = () => {
+      courses.forEach(course => {
+        // Only refresh for courses on current day
+        const today = new Date().toLocaleDateString("en-US", { weekday: "long" });
+        if (course.day === today) {
+          calculateRouteReminder(course.id, course.venue);
+        }
       });
-      setReminders(upcomingReminders);
     };
 
-    checkReminders();
-    const interval = setInterval(checkReminders, 60000); // Check every minute
+    refreshReminders();
+    const interval = setInterval(refreshReminders, 5 * 60000); // Every 5 minutes
     return () => clearInterval(interval);
-  }, [courses]);
+  }, [courses, studentId]);
 
-  const addCourse = () => {
+  const addCourse = async () => {
     if (newCourse.code && newCourse.name && newCourse.venue) {
-      const course: Course = {
-        id: String(courses.length + 1),
-        code: newCourse.code,
-        name: newCourse.name,
-        venue: newCourse.venue,
-        time: newCourse.time || "09:00 AM",
-        day: newCourse.day || "Monday",
-        duration: newCourse.duration || 60,
-        notificationTime: newCourse.notificationTime || 20
-      };
-      setCourses([...courses, course]);
-      setNewCourse({});
-      setShowAddForm(false);
+      try {
+        const response = await fetch(`/api/timetable/${studentId}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(newCourse)
+        });
+
+        if (response.ok) {
+          const savedCourse = await response.json();
+          setCourses([...courses, savedCourse]);
+          setNewCourse({});
+          setShowAddForm(false);
+        } else {
+          console.error("Failed to add course:", response.status);
+        }
+      } catch (error) {
+        console.error("Error adding course:", error);
+      }
     }
   };
 
-  const deleteCourse = (id: string) => {
-    setCourses(courses.filter(c => c.id !== id));
+  const deleteCourse = async (id: string) => {
+    try {
+      const response = await fetch(`/api/timetable/${studentId}/${id}`, {
+        method: "DELETE"
+      });
+
+      if (response.ok) {
+        setCourses(courses.filter(c => c.id !== id));
+      } else {
+        console.error("Failed to delete course:", response.status);
+      }
+    } catch (error) {
+      console.error("Error deleting course:", error);
+    }
   };
 
   const getStatusBadge = (status: string) => {

@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import { MapPin, Search, Navigation, Compass, Phone, Info, Menu, X, Home } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import OfflineStatus from "@/components/OfflineStatus";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -24,6 +25,7 @@ export default function Layout({ children }: LayoutProps) {
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground font-sans">
+      <OfflineStatus />
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-16 items-center justify-between">
@@ -51,13 +53,17 @@ export default function Layout({ children }: LayoutProps) {
           </nav>
 
           <div className="hidden md:flex items-center gap-4">
-            <Button variant="outline" size="sm" className="gap-2">
-              <Search className="h-4 w-4" />
-              Search
-            </Button>
-            <Button size="sm" className="bg-secondary text-secondary-foreground hover:bg-secondary/90 border-none">
-              Freshers Mode
-            </Button>
+            <Link to="/map?focus=search">
+              <Button variant="outline" size="sm" className="gap-2">
+                <Search className="h-4 w-4" />
+                Search
+              </Button>
+            </Link>
+            <Link to="/freshers">
+              <Button size="sm" className="bg-secondary text-secondary-foreground hover:bg-secondary/90 border-none">
+                Freshers Mode
+              </Button>
+            </Link>
           </div>
 
           {/* Mobile Menu Toggle */}
@@ -81,8 +87,8 @@ export default function Layout({ children }: LayoutProps) {
                 onClick={() => setIsMenuOpen(false)}
                 className={cn(
                   "flex items-center gap-4 text-lg font-medium p-3 rounded-xl transition-colors",
-                  isActive(item.path) 
-                    ? "bg-primary/10 text-primary" 
+                  isActive(item.path)
+                    ? "bg-primary/10 text-primary"
                     : "text-muted-foreground hover:bg-muted"
                 )}
               >
@@ -91,14 +97,18 @@ export default function Layout({ children }: LayoutProps) {
               </Link>
             ))}
             <div className="mt-4 pt-4 border-t flex flex-col gap-4">
-              <Button className="w-full justify-start gap-4 h-12 text-lg">
-                <Search className="h-5 w-5" />
-                Search Campus
-              </Button>
-              <Button variant="secondary" className="w-full justify-start gap-4 h-12 text-lg">
-                <Compass className="h-5 w-5" />
-                Start Freshers Guide
-              </Button>
+              <Link to="/map?focus=search" onClick={() => setIsMenuOpen(false)}>
+                <Button className="w-full justify-start gap-4 h-12 text-lg">
+                  <Search className="h-5 w-5" />
+                  Search Campus
+                </Button>
+              </Link>
+              <Link to="/freshers" onClick={() => setIsMenuOpen(false)}>
+                <Button variant="secondary" className="w-full justify-start gap-4 h-12 text-lg">
+                  <Compass className="h-5 w-5" />
+                  Start Freshers Guide
+                </Button>
+              </Link>
             </div>
           </nav>
         </div>
@@ -109,40 +119,42 @@ export default function Layout({ children }: LayoutProps) {
         {children}
       </main>
 
-      {/* Footer */}
-      <footer className="border-t bg-muted/30 py-8">
-        <div className="container grid grid-cols-1 md:grid-cols-4 gap-8">
-          <div className="col-span-1 md:col-span-2">
-            <Link to="/" className="flex items-center gap-2 font-bold text-xl text-primary mb-4">
-              <MapPin className="h-6 w-6" />
-              <span>FUTA Pathfinder</span>
-            </Link>
-            <p className="text-muted-foreground text-sm max-w-sm">
-              Navigating FUTA's hills and halls with ease. The ultimate companion for every student, visitor, and staff member.
-            </p>
+      {/* Footer - Social proof & secondary navigation - Hide on map page */}
+      {location.pathname !== "/map" && (
+        <footer className="border-t bg-muted/30 py-8">
+          <div className="container grid grid-cols-1 md:grid-cols-4 gap-8">
+            <div className="col-span-1 md:col-span-2">
+              <Link to="/" className="flex items-center gap-2 font-bold text-xl text-primary mb-4">
+                <MapPin className="h-6 w-6" />
+                <span>FUTA Pathfinder</span>
+              </Link>
+              <p className="text-muted-foreground text-sm max-w-sm">
+                Navigating FUTA's hills and halls with ease. The ultimate companion for every student, visitor, and staff member.
+              </p>
+            </div>
+            <div>
+              <h4 className="font-semibold mb-4">Quick Links</h4>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li><Link to="/map" className="hover:text-primary">Campus Map</Link></li>
+                <li><Link to="/tour" className="hover:text-primary">Virtual Tour</Link></li>
+                <li><Link to="/emergency" className="hover:text-primary">Emergency Services</Link></li>
+                <li><Link to="/timetable" className="hover:text-primary">Class Timetable</Link></li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-semibold mb-4">Support</h4>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li><Link to="/help" className="hover:text-primary">Help Center</Link></li>
+                <li><Link to="/community/reports" className="hover:text-primary">Report an Issue</Link></li>
+                <li><Link to="/emergency" className="hover:text-primary">Contact Security</Link></li>
+              </ul>
+            </div>
           </div>
-          <div>
-            <h4 className="font-semibold mb-4">Quick Links</h4>
-            <ul className="space-y-2 text-sm text-muted-foreground">
-              <li><Link to="/map" className="hover:text-primary">Campus Map</Link></li>
-              <li><Link to="/tour" className="hover:text-primary">Virtual Tour</Link></li>
-              <li><Link to="/emergency" className="hover:text-primary">Emergency Services</Link></li>
-              <li><Link to="/timetable" className="hover:text-primary">Class Timetable</Link></li>
-            </ul>
+          <div className="container mt-8 pt-8 border-t text-center text-sm text-muted-foreground">
+            © {new Date().getFullYear()} Federal University of Technology Akure. Designed for Excellence.
           </div>
-          <div>
-            <h4 className="font-semibold mb-4">Support</h4>
-            <ul className="space-y-2 text-sm text-muted-foreground">
-              <li><Link to="/help" className="hover:text-primary">Help Center</Link></li>
-              <li><Link to="/report" className="hover:text-primary">Report an Issue</Link></li>
-              <li><Link to="/contact" className="hover:text-primary">Contact Security</Link></li>
-            </ul>
-          </div>
-        </div>
-        <div className="container mt-8 pt-8 border-t text-center text-sm text-muted-foreground">
-          © {new Date().getFullYear()} Federal University of Technology Akure. Designed for Excellence.
-        </div>
-      </footer>
-    </div>
+        </footer>
+      )}
+    </div >
   );
 }

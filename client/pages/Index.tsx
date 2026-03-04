@@ -1,20 +1,30 @@
 import { MapPin, Navigation, Compass, Phone, Search, Bell, Clock, Info, Shield, GraduationCap, Building2, Utensils, Landmark, CreditCard, Activity, TrendingUp, AlertTriangle } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Layout from "@/components/Layout";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAnalytics } from "@/hooks/use-analytics";
+import { useOfflineSearch } from "@/hooks/use-offline-search";
+import { useMemo } from "react";
 
 export default function Index() {
   // Track page analytics
   useAnalytics("index");
+  const navigate = useNavigate();
 
   const [searchQuery, setSearchQuery] = useState("");
 
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/map?q=${encodeURIComponent(searchQuery)}`);
+    }
+  };
+
   const quickLinks = [
-    { label: "My Department", icon: GraduationCap, path: "/map?category=department", color: "bg-blue-500" },
+    { label: "My Department", icon: GraduationCap, path: "/map?category=school", color: "bg-blue-500" },
     { label: "Lecture Venue", icon: Building2, path: "/map?category=venue", color: "bg-purple-500" },
     { label: "Nearest Food", icon: Utensils, path: "/map?category=food", color: "bg-orange-500" },
     { label: "Bank/ATM", icon: CreditCard, path: "/map?category=bank", color: "bg-green-500" },
@@ -22,11 +32,22 @@ export default function Index() {
     { label: "Senate/Admin", icon: Landmark, path: "/map?category=admin", color: "bg-indigo-500" },
   ];
 
+  const { allLocations, loading } = useOfflineSearch();
+
+  const counts = useMemo(() => {
+    return {
+      school: allLocations.filter(loc => loc.category === "school").length,
+      venue: allLocations.filter(loc => loc.category === "venue").length,
+      hostel: allLocations.filter(loc => loc.category === "hostel" || loc.type === "Hostel").length,
+      bank: allLocations.filter(loc => loc.category === "bank").length,
+    };
+  }, [allLocations]);
+
   const categories = [
-    { id: "schools", label: "Schools (SEET, SAAT...)", count: 12 },
-    { id: "halls", label: "Lecture Halls", count: 45 },
-    { id: "hostels", label: "Hostels", count: 18 },
-    { id: "banks", label: "Banks & ATMs", count: 8 },
+    { id: "schools", label: "Schools (SEET, SAAT...)", count: counts.school, category: "school" },
+    { id: "halls", label: "Lecture Halls", count: counts.venue, category: "venue" },
+    { id: "hostels", label: "Hostels", count: counts.hostel, category: "hostel" },
+    { id: "banks", label: "Banks & ATMs", count: counts.bank, category: "bank" },
   ];
 
   return (
@@ -55,7 +76,7 @@ export default function Index() {
             </p>
           </div>
 
-          <div className="max-w-2xl mx-auto relative">
+          <form onSubmit={handleSearch} className="max-w-2xl mx-auto relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <Input
               placeholder="Search for departments, lecture halls, hostels..."
@@ -63,7 +84,7 @@ export default function Index() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
-          </div>
+          </form>
 
           <div className="flex flex-wrap items-center justify-center gap-4 pt-4">
             <Link to="/map">
@@ -141,18 +162,18 @@ export default function Index() {
           </Link>
         </div>
         <div className="relative aspect-square rounded-3xl overflow-hidden shadow-2xl border-8 border-background">
-           <div className="absolute inset-0 bg-primary/10 flex items-center justify-center">
-              <img
-                src="https://cdn.builder.io/api/v1/image/assets%2F81c227575c2f438fa8ab005c4c674b2d%2Fb468438e83c744bc84c3de4ecb943f88?format=webp&width=800&height=1200"
-                alt="FUTA Senate Building"
-                className="w-full h-full object-cover opacity-90"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-primary/80 to-transparent" />
-              <div className="absolute bottom-8 left-8 right-8 text-white space-y-2">
-                <p className="text-lg font-bold">Senate Building</p>
-                <p className="text-sm opacity-80 italic">"Walk past the Senate building. Turn left at the big mango tree."</p>
-              </div>
-           </div>
+          <div className="absolute inset-0 bg-primary/10 flex items-center justify-center">
+            <img
+              src="https://cdn.builder.io/api/v1/image/assets%2F81c227575c2f438fa8ab005c4c674b2d%2Fb468438e83c744bc84c3de4ecb943f88?format=webp&width=800&height=1200"
+              alt="FUTA Senate Building"
+              className="w-full h-full object-cover opacity-90"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-primary/80 to-transparent" />
+            <div className="absolute bottom-8 left-8 right-8 text-white space-y-2">
+              <p className="text-lg font-bold">Senate Building</p>
+              <p className="text-sm opacity-80 italic">"Walk past the Senate building. Turn left at the big mango tree."</p>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -165,16 +186,24 @@ export default function Index() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {categories.map((cat) => (
-              <div key={cat.id} className="bg-background p-8 rounded-2xl shadow-sm hover:shadow-md transition-all border border-border group cursor-pointer">
-                <h3 className="text-xl font-bold mb-2 group-hover:text-primary transition-colors">{cat.label}</h3>
-                <p className="text-muted-foreground">{cat.count} verified locations</p>
-              </div>
+              <Link key={cat.id} to={`/map?category=${cat.category}`}>
+                <div className="bg-background p-8 rounded-2xl shadow-sm hover:shadow-md transition-all border border-border group cursor-pointer h-full">
+                  <h3 className="text-xl font-bold mb-2 group-hover:text-primary transition-colors">{cat.label}</h3>
+                  {loading ? (
+                    <div className="h-4 w-20 bg-muted animate-pulse rounded" />
+                  ) : (
+                    <p className="text-muted-foreground">{cat.count} verified locations</p>
+                  )}
+                </div>
+              </Link>
             ))}
           </div>
           <div className="text-center">
-             <Button variant="outline" size="lg" className="rounded-xl font-bold">
-               View Full Directory
-             </Button>
+            <Link to="/map">
+              <Button variant="outline" size="lg" className="rounded-xl font-bold">
+                View Full Directory
+              </Button>
+            </Link>
           </div>
         </div>
       </section>

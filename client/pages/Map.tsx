@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
+import { useLocation } from "react-router-dom";
 import Layout from "@/components/Layout";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -18,41 +19,81 @@ import { RouteResponse, RouteStep } from "@shared/navigation";
 import ReportErrorModal from "@/components/ReportErrorModal";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import AddPlaceModal from "@/components/AddPlaceModal";
+
+// Add marker styles
+const markerStyles = `
+  .custom-marker {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+`;
+
+import { useOfflineSearch } from "@/hooks/use-offline-search";
+import { usePersistentNavigation } from "@/hooks/use-persistent-navigation";
 
 // FUTA Central Coordinates
 const FUTA_CENTER: [number, number] = [5.1300, 7.3000];
 
 export default function MapPage() {
+  // Inject marker styles
+  useEffect(() => {
+    const styleTag = document.createElement("style");
+    styleTag.innerHTML = markerStyles;
+    document.head.appendChild(styleTag);
+    return () => { document.head.removeChild(styleTag); };
+  }, []);
+
   // Track page analytics
   useAnalytics("map");
+  const location = useLocation();
 
   const mapContainer = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
-  const [locations, setLocations] = useState<Location[]>([]);
-  const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
+  const markers = useRef<Record<string, maplibregl.Marker>>({});
+
+  // Offline-capable hooks
+  const { searchLocations, loading: locationsLoading } = useOfflineSearch();
+  const {
+    selectedLocation,
+    isNavigating,
+    route,
+    preferFlat,
+    updateNavState,
+    clearNavState
+  } = usePersistentNavigation();
+
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [isNavigating, setIsNavigating] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [route, setRoute] = useState<RouteResponse | null>(null);
-  const [preferFlat, setPreferFlat] = useState(false);
   const [reportErrorOpen, setReportErrorOpen] = useState(false);
+  const [addPlaceOpen, setAddPlaceOpen] = useState(false);
   const [currentMapCenter, setCurrentMapCenter] = useState<{ lat: number; lng: number } | undefined>();
-  const markers = useRef<Record<string, maplibregl.Marker>>({});
+  const [debugInfo, setDebugInfo] = useState<{ keyStatus: string; status?: string; error?: string; layers?: number; center?: string }>({ keyStatus: "awaiting" });
+
+  const locations = useMemo(() => {
+    return searchLocations(searchQuery, activeCategory);
+  }, [searchQuery, activeCategory, searchLocations]);
 
   // Initialize MapLibre (for MapTiler)
   useEffect(() => {
-    if (map.current || !mapContainer.current) return; // initialize map only once
+    if (map.current || !mapContainer.current) return;
 
-    const apiKey = (import.meta as any).env?.VITE_MAPTILER_API_KEY;
+    // Use env variable with priority
+    const apiKey = import.meta.env.VITE_MAPTILER_API_KEY || "mdXYRN4uUQxepxwuNS84";
 
-    if (!apiKey) {
-      console.error("MapTiler API Key is missing! Please add VITE_MAPTILER_API_KEY to your environment variables.");
+    if (!apiKey || apiKey === "__MAPTILER_API_KEY__") {
+      console.warn("MapTiler API Key is missing or default. Map will not load.");
+      setDebugInfo({ keyStatus: "missing/default" });
       return;
     }
 
+    setDebugInfo({ keyStatus: "found: " + apiKey.substring(0, 4) + "..." });
+
     try {
+      console.log("Initializing MapLibre at FUTA center:", FUTA_CENTER);
       map.current = new maplibregl.Map({
         container: mapContainer.current,
         style: `https://api.maptiler.com/maps/streets-v2/style.json?key=${apiKey}`,
@@ -61,16 +102,78 @@ export default function MapPage() {
       });
 
       map.current.addControl(new maplibregl.NavigationControl(), "top-right");
-      console.log("Map initialized successfully");
-    } catch (error) {
+
+      // Use ResizeObserver for more reliable sizing
+      const resizeObserver = new ResizeObserver(() => {
+        if (map.current) {
+          map.current.resize();
+        }
+      });
+      resizeObserver.observe(mapContainer.current);
+
+      map.current.on('load', () => {
+        const style = map.current?.getStyle();
+        console.log("Map load event fired. Layers count:", style?.layers?.length);
+        setDebugInfo(prev => ({
+          ...prev,
+          status: "loaded",
+          layers: style?.layers?.length,
+          center: JSON.stringify(map.current?.getCenter())
+        }));
+      });
+
+      map.current.on('moveend', () => {
+        if (map.current) {
+          const center = map.current.getCenter();
+          setDebugInfo(prev => ({ ...prev, center: `${center.lng.toFixed(4)}, ${center.lat.toFixed(4)}` }));
+        }
+      });
+
+      map.current.on('error', (e) => {
+        console.error("MapLibre error:", e);
+        setDebugInfo(prev => ({ ...prev, error: String(e.error?.message || e.error || "Map error") }));
+      });
+
+      return () => {
+        resizeObserver.disconnect();
+        if (map.current) {
+          console.log("Cleaning up map instance");
+          map.current.remove();
+          map.current = null;
+        }
+      };
+    } catch (error: any) {
       console.error("Failed to initialize map:", error);
+      setDebugInfo({ keyStatus: "error", error: error.message });
+    }
+  }, []);
+
+  // Handle URL focus and category parameters
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+
+    // Handle focus
+    if (params.get("focus") === "search" && searchInputRef.current) {
+      setTimeout(() => {
+        searchInputRef.current?.focus();
+        setIsSidebarOpen(true);
+      }, 300);
     }
 
-    return () => {
-      map.current?.remove();
-      map.current = null;
-    };
-  }, []);
+    // Handle category
+    const cat = params.get("category");
+    if (cat) {
+      setActiveCategory(cat);
+      setIsSidebarOpen(true);
+    }
+
+    // Handle search query
+    const query = params.get("q");
+    if (query) {
+      setSearchQuery(decodeURIComponent(query));
+      setIsSidebarOpen(true);
+    }
+  }, [location.search]);
 
   // Handle markers
   useEffect(() => {
@@ -109,41 +212,18 @@ export default function MapPage() {
   }, [locations, selectedLocation]);
 
   useEffect(() => {
-    fetchLocations();
-  }, [activeCategory]);
-
-  const fetchLocations = async () => {
-    try {
-      setLoading(true);
-      const url = activeCategory === "all" ? "/api/locations" : `/api/locations?category=${activeCategory}`;
-      const response = await fetch(url);
-      const data = await response.json();
-      setLocations(data);
-    } catch (error) {
-      console.error("Failed to fetch locations:", error);
-    } finally {
-      setLoading(false);
+    if (route && map.current && isNavigating) {
+      drawRoute(route);
     }
-  };
-
-  const filteredLocations = useMemo(() => {
-    return locations.filter(loc => {
-      const matchesSearch = loc.name.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchesSearch;
-    });
-  }, [searchQuery, locations]);
-
-  // Track search queries
-  useEffect(() => {
-    if (searchQuery.trim()) {
-      trackSearch(searchQuery);
-    }
-  }, [searchQuery]);
+  }, [route, isNavigating]);
 
   const handleLocationClick = (loc: Location) => {
-    setSelectedLocation(loc);
-    setIsNavigating(false);
-    setRoute(null);
+    updateNavState({
+      selectedLocation: loc,
+      isNavigating: false,
+      route: null
+    });
+
     if (map.current) {
       map.current.flyTo({
         center: [loc.coordinates.lng, loc.coordinates.lat],
@@ -153,11 +233,70 @@ export default function MapPage() {
     }
   };
 
+  const drawRoute = (routeData: RouteResponse) => {
+    if (!map.current) return;
+
+    if (map.current.getSource('route')) {
+      (map.current.getSource('route') as maplibregl.GeoJSONSource).setData({
+        type: 'Feature',
+        properties: {},
+        geometry: {
+          type: 'LineString',
+          coordinates: routeData.path
+        }
+      });
+    } else {
+      map.current.addSource('route', {
+        type: 'geojson',
+        data: {
+          type: 'Feature',
+          properties: {},
+          geometry: {
+            type: 'LineString',
+            coordinates: routeData.path
+          }
+        }
+      });
+
+      map.current.addLayer({
+        id: 'route',
+        type: 'line',
+        source: 'route',
+        layout: {
+          'line-join': 'round',
+          'line-cap': 'round'
+        },
+        paint: {
+          'line-color': '#888',
+          'line-width': 8,
+          'line-dasharray': [1, 2]
+        }
+      });
+
+      map.current.addLayer({
+        id: 'route-animated',
+        type: 'line',
+        source: 'route',
+        layout: {
+          'line-join': 'round',
+          'line-cap': 'round'
+        },
+        paint: {
+          'line-color': 'hsl(270, 70%, 40%)',
+          'line-width': 6
+        }
+      });
+    }
+
+    const bounds = new maplibregl.LngLatBounds();
+    routeData.path.forEach(coord => bounds.extend(coord as [number, number]));
+    map.current.fitBounds(bounds, { padding: 50 });
+  };
+
   const startNavigation = async () => {
     if (!selectedLocation) return;
 
     try {
-      // Get real user location using geolocation API
       const position = await new Promise<GeolocationPosition>((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(resolve, reject);
       });
@@ -177,87 +316,34 @@ export default function MapPage() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `Failed to calculate route (${response.status})`);
+        throw new Error("Failed to calculate route");
       }
 
       const data: RouteResponse = await response.json();
-      setRoute(data);
-      setIsNavigating(true);
+      updateNavState({
+        route: data,
+        isNavigating: true
+      });
 
-      // Track navigation
       trackNavigation("current_location", selectedLocation.name, "map_click", data.total_distance);
-
-      // Draw route on map
-      if (map.current) {
-        if (map.current.getSource('route')) {
-          (map.current.getSource('route') as maplibregl.GeoJSONSource).setData({
-            type: 'Feature',
-            properties: {},
-            geometry: {
-              type: 'LineString',
-              coordinates: data.path
-            }
-          });
-        } else {
-          map.current.addSource('route', {
-            type: 'geojson',
-            data: {
-              type: 'Feature',
-              properties: {},
-              geometry: {
-                type: 'LineString',
-                coordinates: data.path
-              }
-            }
-          });
-
-          map.current.addLayer({
-            id: 'route',
-            type: 'line',
-            source: 'route',
-            layout: {
-              'line-join': 'round',
-              'line-cap': 'round'
-            },
-            paint: {
-              'line-color': '#888',
-              'line-width': 8,
-              'line-dasharray': [1, 2]
-            }
-          });
-
-          // Animated layer on top
-          map.current.addLayer({
-            id: 'route-animated',
-            type: 'line',
-            source: 'route',
-            layout: {
-              'line-join': 'round',
-              'line-cap': 'round'
-            },
-            paint: {
-              'line-color': 'hsl(270, 70%, 40%)',
-              'line-width': 6
-            }
-          });
-        }
-
-        // Fit bounds to route
-        const bounds = new maplibregl.LngLatBounds();
-        data.path.forEach(coord => bounds.extend(coord as [number, number]));
-        map.current.fitBounds(bounds, { padding: 50 });
-      }
-
     } catch (error) {
       console.error("Navigation error:", error);
     }
   };
 
+  const stopNavigation = () => {
+    updateNavState({ isNavigating: false });
+    if (map.current && map.current.getLayer('route')) {
+      map.current.removeLayer('route');
+      map.current.removeLayer('route-animated');
+      map.current.removeSource('route');
+    }
+  };
+
   return (
     <Layout>
-      <div className="flex h-[calc(100vh-64px)] overflow-hidden relative">
-        
+      <div className="flex h-[calc(100vh-64px)] overflow-hidden">
+
         {/* Sidebar Controls */}
         <aside className={cn(
           "w-80 border-r bg-card flex flex-col transition-all duration-300 z-30 absolute md:relative inset-y-0 left-0",
@@ -272,8 +358,9 @@ export default function MapPage() {
             </div>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input 
-                placeholder="Search campus..." 
+              <Input
+                ref={searchInputRef}
+                placeholder="Search campus..."
                 className="pl-9 h-11"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -283,10 +370,10 @@ export default function MapPage() {
 
           <div className="flex-1 overflow-hidden flex flex-col">
             <div className="p-4 flex gap-2 overflow-x-auto pb-2 scrollbar-hide border-b bg-muted/30">
-              {['all', 'school', 'admin', 'food', 'bank', 'health'].map(cat => (
-                <Button 
-                  key={cat} 
-                  variant={activeCategory === cat ? "default" : "outline"} 
+              {['all', 'school', 'venue', 'hostel', 'admin', 'food', 'bank', 'health'].map(cat => (
+                <Button
+                  key={cat}
+                  variant={activeCategory === cat ? "default" : "outline"}
                   size="sm"
                   className="capitalize whitespace-nowrap"
                   onClick={() => setActiveCategory(cat)}
@@ -298,7 +385,7 @@ export default function MapPage() {
 
             <ScrollArea className="flex-1">
               <div className="p-2 space-y-1">
-                {filteredLocations.map(loc => (
+                {locations.map(loc => (
                   <button
                     key={loc.id}
                     className={cn(
@@ -332,9 +419,9 @@ export default function MapPage() {
 
         {/* Sidebar Toggle (Desktop) */}
         {!isSidebarOpen && (
-          <Button 
-            variant="outline" 
-            size="icon" 
+          <Button
+            variant="outline"
+            size="icon"
             className="absolute left-4 top-4 z-40 rounded-full shadow-lg bg-background hidden md:flex"
             onClick={() => setIsSidebarOpen(true)}
           >
@@ -343,8 +430,20 @@ export default function MapPage() {
         )}
 
         {/* Map View Area */}
-        <main className="flex-1 relative bg-muted overflow-hidden">
-          <div ref={mapContainer} className="absolute inset-0" />
+        <main className="flex-1 relative overflow-hidden bg-white">
+          <div
+            ref={mapContainer}
+            className="absolute inset-0 bg-white z-0"
+            style={{ width: '100%', height: '100%' }}
+          />
+
+          <div className="absolute top-4 left-4 z-50 p-2 bg-black/80 text-white text-[10px] rounded border border-white/20 pointer-events-none">
+            <p>API Key: {debugInfo.keyStatus}</p>
+            <p>Status: {debugInfo.status || "initializing"}</p>
+            {debugInfo.layers !== undefined && <p>Layers: {debugInfo.layers}</p>}
+            {debugInfo.center && <p>Center: {debugInfo.center}</p>}
+            {debugInfo.error && <p className="text-red-400">Error: {debugInfo.error}</p>}
+          </div>
 
           {/* Map Controls (Overlaying Mapbox) */}
           <div className="absolute right-6 top-6 flex flex-col gap-2 z-10">
@@ -353,6 +452,21 @@ export default function MapPage() {
             </Button>
             <Button size="icon" variant="secondary" className="rounded-full shadow-lg bg-background/80 backdrop-blur">
               <LocateFixed className="h-5 w-5 text-blue-600" />
+            </Button>
+            <Button
+              size="icon"
+              variant="secondary"
+              className="rounded-full shadow-lg bg-background/80 backdrop-blur"
+              onClick={() => {
+                if (map.current) {
+                  const center = map.current.getCenter();
+                  setCurrentMapCenter({ lat: center.lat, lng: center.lng });
+                }
+                setAddPlaceOpen(true);
+              }}
+              title="Add a new place"
+            >
+              <MapPin className="h-5 w-5 text-green-600" />
             </Button>
             <Button
               size="icon"
@@ -386,12 +500,7 @@ export default function MapPage() {
                       Navigating to {selectedLocation.name}
                     </h3>
                     <Button variant="ghost" size="icon" onClick={() => {
-                      setIsNavigating(false);
-                      if (map.current && map.current.getLayer('route')) {
-                        map.current.removeLayer('route');
-                        map.current.removeLayer('route-animated');
-                        map.current.removeSource('route');
-                      }
+                      stopNavigation();
                     }}>
                       <X className="h-5 w-5" />
                     </Button>
@@ -438,14 +547,7 @@ export default function MapPage() {
                         <Phone className="h-5 w-5" />
                         Emergency help
                       </Button>
-                      <Button variant="outline" className="h-12 rounded-xl" onClick={() => {
-                        setIsNavigating(false);
-                        if (map.current && map.current.getLayer('route')) {
-                          map.current.removeLayer('route');
-                          map.current.removeLayer('route-animated');
-                          map.current.removeSource('route');
-                        }
-                      }}>
+                      <Button variant="outline" className="h-12 rounded-xl" onClick={stopNavigation}>
                         Exit
                       </Button>
                     </div>
@@ -468,7 +570,7 @@ export default function MapPage() {
                         <h3 className="text-2xl font-bold">{selectedLocation.name}</h3>
                         <p className="text-muted-foreground text-sm">{selectedLocation.description}</p>
                       </div>
-                      <Button variant="ghost" size="icon" onClick={() => setSelectedLocation(null)}>
+                      <Button variant="ghost" size="icon" onClick={clearNavState}>
                         <X className="h-5 w-5" />
                       </Button>
                     </div>
@@ -486,16 +588,16 @@ export default function MapPage() {
 
                     <div className="flex flex-col gap-3">
                       <div className="flex items-center gap-2 mb-1">
-                         <input
-                           type="checkbox"
-                           id="preferFlat"
-                           checked={preferFlat}
-                           onChange={(e) => setPreferFlat(e.target.checked)}
-                           className="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary"
-                         />
-                         <label htmlFor="preferFlat" className="text-sm font-medium text-muted-foreground cursor-pointer">
-                           Avoid steep hills (longer path)
-                         </label>
+                        <input
+                          type="checkbox"
+                          id="preferFlat"
+                          checked={preferFlat}
+                          onChange={(e) => updateNavState({ preferFlat: e.target.checked })}
+                          className="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary"
+                        />
+                        <label htmlFor="preferFlat" className="text-sm font-medium text-muted-foreground cursor-pointer">
+                          Avoid steep hills (longer path)
+                        </label>
                       </div>
                       <div className="flex gap-3">
                         <Button className="flex-1 h-12 rounded-xl font-bold gap-2" onClick={startNavigation}>
@@ -515,25 +617,17 @@ export default function MapPage() {
         </main>
       </div>
 
-      <style>{`
-        @keyframes dash {
-          to {
-            stroke-dashoffset: -100;
-          }
-        }
-        .scrollbar-hide::-webkit-scrollbar {
-          display: none;
-        }
-        .scrollbar-hide {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-      `}</style>
-
       <ReportErrorModal
         open={reportErrorOpen}
         onOpenChange={setReportErrorOpen}
         currentLocation={currentMapCenter}
+      />
+
+      <AddPlaceModal
+        open={addPlaceOpen}
+        onOpenChange={setAddPlaceOpen}
+        currentLocation={currentMapCenter}
+        onSuccess={() => {/* Implicitly handled by offline search interval or manual refresh if added */ }}
       />
     </Layout>
   );
