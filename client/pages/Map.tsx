@@ -71,6 +71,9 @@ export default function MapPage() {
   const [reportErrorOpen, setReportErrorOpen] = useState(false);
   const [addPlaceOpen, setAddPlaceOpen] = useState(false);
   const [currentMapCenter, setCurrentMapCenter] = useState<{ lat: number; lng: number } | undefined>();
+  const [mapStyle, setMapStyle] = useState<"streets-v2" | "satellite">("streets-v2");
+  const [isLocating, setIsLocating] = useState(false);
+  const [locationStatus, setLocationStatus] = useState("");
   const [debugInfo, setDebugInfo] = useState<{ keyStatus: string; status?: string; error?: string; layers?: number; center?: string }>({ keyStatus: "awaiting" });
 
   const locations = useMemo(() => {
@@ -96,7 +99,7 @@ export default function MapPage() {
       console.log("Initializing MapLibre at FUTA center:", FUTA_CENTER);
       map.current = new maplibregl.Map({
         container: mapContainer.current,
-        style: `https://api.maptiler.com/maps/streets-v2/style.json?key=${apiKey}`,
+        style: `https://api.maptiler.com/maps/${mapStyle}/style.json?key=${apiKey}`,
         center: FUTA_CENTER,
         zoom: 15,
       });
@@ -146,7 +149,7 @@ export default function MapPage() {
       console.error("Failed to initialize map:", error);
       setDebugInfo({ keyStatus: "error", error: error.message });
     }
-  }, []);
+  }, [mapStyle]);
 
   // Handle URL focus and category parameters
   useEffect(() => {
@@ -295,11 +298,37 @@ export default function MapPage() {
 
   const startNavigation = async () => {
     if (!selectedLocation) return;
-
+    setIsLocating(true);
+    setLocationStatus("Connecting to GPS...");
     try {
       const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject);
+        if (!navigator.geolocation) {
+          reject(new Error("Geolocation is not supported by your browser."));
+          return;
+        }
+
+        const options = {
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 60000 // Allow 1 minute old cached location
+        };
+
+        navigator.geolocation.getCurrentPosition(resolve, (err) => {
+          // Fallback if high accuracy fails with code 2 or 3
+          if (err.code === 2 || err.code === 3) {
+            console.warn("High accuracy failed, retrying with low accuracy...");
+            setLocationStatus("Searching with weak signal...");
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+              ...options,
+              enableHighAccuracy: false,
+              timeout: 20000
+            });
+          } else {
+            reject(err);
+          }
+        }, options);
       });
+      setLocationStatus("Location found!");
 
       const userLat = position.coords.latitude;
       const userLng = position.coords.longitude;
@@ -326,8 +355,24 @@ export default function MapPage() {
       });
 
       trackNavigation("current_location", selectedLocation.name, "map_click", data.total_distance);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Navigation error:", error);
+      let message = error.message || "Failed to start navigation.";
+
+      // Handle geolocation specific errors if it was a GeolocationPositionError
+      if (error instanceof GeolocationPositionError || error.code !== undefined) {
+        if (error.code === 1) message = "Location access denied. Please enable location permissions in search/navigation.";
+        else if (error.code === 2) message = "Location information is unavailable.";
+        else if (error.code === 3) message = "Location request timed out. Please try again.";
+      }
+
+      if (!window.isSecureContext) {
+        message += " Note: Geolocation requires a secure (HTTPS) connection.";
+      }
+
+      alert(message);
+    } finally {
+      setIsLocating(false);
     }
   };
 
@@ -342,7 +387,7 @@ export default function MapPage() {
 
   return (
     <Layout>
-      <div className="flex h-[calc(100vh-64px)] overflow-hidden">
+      <div className="flex h-[calc(100vh-64px)] overflow-hidden relative">
 
         {/* Sidebar Controls */}
         <aside className={cn(
@@ -352,7 +397,7 @@ export default function MapPage() {
           <div className="p-4 border-b space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="font-bold text-xl">Find Places</h2>
-              <Button variant="ghost" size="icon" onClick={() => setIsSidebarOpen(false)} className="md:hidden">
+              <Button variant="ghost" size="icon" onClick={() => setIsSidebarOpen(false)}>
                 <X className="h-5 w-5" />
               </Button>
             </div>
@@ -417,19 +462,6 @@ export default function MapPage() {
           </div>
         </aside>
 
-        {/* Sidebar Toggle (Desktop) */}
-        {!isSidebarOpen && (
-          <Button
-            variant="outline"
-            size="icon"
-            className="absolute left-4 top-4 z-40 rounded-full shadow-lg bg-background hidden md:flex"
-            onClick={() => setIsSidebarOpen(true)}
-          >
-            <ChevronRight className="h-5 w-5" />
-          </Button>
-        )}
-
-        {/* Map View Area */}
         <main className="flex-1 relative overflow-hidden bg-white">
           <div
             ref={mapContainer}
@@ -437,7 +469,7 @@ export default function MapPage() {
             style={{ width: '100%', height: '100%' }}
           />
 
-          <div className="absolute top-4 left-4 z-50 p-2 bg-black/80 text-white text-[10px] rounded border border-white/20 pointer-events-none">
+          <div className="absolute bottom-4 left-4 z-50 p-2 bg-black/80 text-white text-[10px] rounded border border-white/20 pointer-events-none">
             <p>API Key: {debugInfo.keyStatus}</p>
             <p>Status: {debugInfo.status || "initializing"}</p>
             {debugInfo.layers !== undefined && <p>Layers: {debugInfo.layers}</p>}
@@ -446,11 +478,83 @@ export default function MapPage() {
           </div>
 
           {/* Map Controls (Overlaying Mapbox) */}
-          <div className="absolute right-6 top-6 flex flex-col gap-2 z-10">
-            <Button size="icon" variant="secondary" className="rounded-full shadow-lg bg-background/80 backdrop-blur">
+          <div className="absolute right-6 top-6 flex flex-col gap-2 z-40">
+            <Button
+              size="icon"
+              variant="secondary"
+              className={cn("rounded-full shadow-lg bg-background/80 backdrop-blur", mapStyle === "satellite" && "bg-primary text-primary-foreground")}
+              onClick={() => setMapStyle(prev => prev === "streets-v2" ? "satellite" : "streets-v2")}
+              title="Toggle satellite view"
+            >
               <Layers className="h-5 w-5" />
             </Button>
-            <Button size="icon" variant="secondary" className="rounded-full shadow-lg bg-background/80 backdrop-blur">
+            <Button
+              size="icon"
+              variant="secondary"
+              className={cn("rounded-full shadow-lg bg-background/80 backdrop-blur", isLocating && "animate-pulse")}
+              onClick={() => {
+                if (!navigator.geolocation) {
+                  alert("Geolocation is not supported by your browser.");
+                  return;
+                }
+
+                setIsLocating(true);
+                setLocationStatus("Searching for you...");
+                const options = {
+                  enableHighAccuracy: true,
+                  timeout: 15000,
+                  maximumAge: 60000 // Allow cached location
+                };
+
+                const success = (pos: GeolocationPosition) => {
+                  setLocationStatus("Caught you!");
+                  if (map.current) {
+                    map.current.flyTo({
+                      center: [pos.coords.longitude, pos.coords.latitude],
+                      zoom: 16,
+                      essential: true
+                    });
+                  }
+                  setTimeout(() => {
+                    setIsLocating(false);
+                    setLocationStatus("");
+                  }, 1500);
+                };
+
+                const error = (err: GeolocationPositionError) => {
+                  if (err.code === 2 || err.code === 3) {
+                    console.warn("High accuracy failed, retrying with low accuracy...");
+                    setLocationStatus("Searching with weak signal...");
+                    navigator.geolocation.getCurrentPosition(success, finalError, {
+                      ...options,
+                      enableHighAccuracy: false,
+                      timeout: 20000
+                    });
+                  } else {
+                    finalError(err);
+                  }
+                };
+
+                const finalError = (err: GeolocationPositionError) => {
+                  console.error("Geolocation error:", err);
+                  setIsLocating(false);
+                  setLocationStatus("");
+                  let message = "Could not get your location.";
+                  if (err.code === 1) message = "Location access denied. Please enable location permissions in your browser settings.";
+                  else if (err.code === 2) message = "Location information is unavailable.";
+                  else if (err.code === 3) message = "Location request timed out. Please try again.";
+
+                  if (!window.isSecureContext) {
+                    message += " Note: Geolocation requires a secure (HTTPS) connection.";
+                  }
+
+                  alert(message);
+                };
+
+                navigator.geolocation.getCurrentPosition(success, error, options);
+              }}
+              title="Find my location"
+            >
               <LocateFixed className="h-5 w-5 text-blue-600" />
             </Button>
             <Button
@@ -488,7 +592,7 @@ export default function MapPage() {
           {/* Bottom Info Sheet / Navigation Panel */}
           {selectedLocation && (
             <div className={cn(
-              "absolute bottom-6 left-1/2 -translate-x-1/2 w-[90%] md:w-[600px] bg-card shadow-2xl rounded-3xl border animate-in slide-in-from-bottom-12 duration-500 overflow-hidden",
+              "absolute bottom-6 left-1/2 -translate-x-1/2 w-[90%] md:w-[600px] bg-card shadow-2xl rounded-3xl border animate-in slide-in-from-bottom-12 duration-500 overflow-hidden z-40",
               isNavigating && "w-full md:w-[400px] left-auto right-6 bottom-6 translate-x-0"
             )}>
               {isNavigating && route ? (
@@ -600,9 +704,17 @@ export default function MapPage() {
                         </label>
                       </div>
                       <div className="flex gap-3">
-                        <Button className="flex-1 h-12 rounded-xl font-bold gap-2" onClick={startNavigation}>
-                          <Navigation className="h-5 w-5" />
-                          Get Directions
+                        <Button
+                          className="flex-1 h-12 rounded-xl font-bold gap-2"
+                          onClick={startNavigation}
+                          disabled={isLocating}
+                        >
+                          {isLocating ? (
+                            <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full" />
+                          ) : (
+                            <Navigation className="h-5 w-5" />
+                          )}
+                          {isLocating ? "Calculating..." : "Get Directions"}
                         </Button>
                         <Button variant="outline" size="icon" className="h-12 w-12 rounded-xl">
                           <MoreVertical className="h-5 w-5" />
@@ -615,6 +727,26 @@ export default function MapPage() {
             </div>
           )}
         </main>
+
+        {/* Sidebar Toggle Button */}
+        {!isSidebarOpen && (
+          <Button
+            variant="outline"
+            size="icon"
+            className="absolute left-4 top-4 z-40 rounded-full shadow-lg bg-background flex"
+            onClick={() => setIsSidebarOpen(true)}
+          >
+            <ChevronRight className="h-5 w-5" />
+          </Button>
+        )}
+
+        {/* Geolocation Status Overlay */}
+        {isLocating && locationStatus && (
+          <div className="absolute top-6 left-1/2 -translate-x-1/2 z-50 bg-primary shadow-xl text-primary-foreground px-6 py-3 rounded-full flex items-center gap-3 animate-in slide-in-from-top-4 duration-300">
+            <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+            <span className="text-sm font-bold tracking-tight">{locationStatus}</span>
+          </div>
+        )}
       </div>
 
       <ReportErrorModal
