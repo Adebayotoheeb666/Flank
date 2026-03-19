@@ -1,21 +1,518 @@
 {
   "nodes": [
-    { "id": "node_gate", "name": "Main Gate", "lat": 7.2950, "lng": 5.1250, "type": "landmark" },
-    { "id": "node_inter_1", "name": "Senate Junction", "lat": 7.3000, "lng": 5.1300, "type": "intersection" },
-    { "id": "node_senate", "name": "Senate Building Access", "lat": 7.3010, "lng": 5.1310, "type": "building" },
-    { "id": "node_inter_2", "name": "Library Junction", "lat": 7.3020, "lng": 5.1320, "type": "intersection" },
-    { "id": "node_library", "name": "Library Access", "lat": 7.3025, "lng": 5.1325, "type": "building" },
-    { "id": "node_seet", "name": "SEET Complex Access", "lat": 7.3000, "lng": 5.1300, "type": "building" },
-    { "id": "node_saat", "name": "SAAT Building Access", "lat": 7.3030, "lng": 5.1330, "type": "building" },
-    { "id": "node_mango", "name": "Big Mango Tree", "lat": 7.3005, "lng": 5.1305, "type": "landmark" }
+    {
+      "id": "node_main_gate",
+      "name": "Main Gate",
+      "lat": 7.2620,
+      "lng": 5.1820,
+      "type": "landmark"
+    },
+    {
+      "id": "node_security_post",
+      "name": "Security Post",
+      "lat": 7.2625,
+      "lng": 5.1825,
+      "type": "landmark"
+    },
+    {
+      "id": "node_parking_main",
+      "name": "Main Parking",
+      "lat": 7.2600,
+      "lng": 5.1850,
+      "type": "intersection"
+    },
+    {
+      "id": "node_admin_block",
+      "name": "Administrative Block A",
+      "lat": 7.2700,
+      "lng": 5.1820,
+      "type": "building"
+    },
+    {
+      "id": "node_student_affairs",
+      "name": "Student Affairs",
+      "lat": 7.2710,
+      "lng": 5.1850,
+      "type": "building"
+    },
+    {
+      "id": "node_bookstore",
+      "name": "Bookstore",
+      "lat": 7.2710,
+      "lng": 5.1830,
+      "type": "building"
+    },
+    {
+      "id": "node_senate",
+      "name": "Senate Building",
+      "lat": 7.2680,
+      "lng": 5.1850,
+      "type": "building"
+    },
+    {
+      "id": "node_auditorium",
+      "name": "Auditorium",
+      "lat": 7.2670,
+      "lng": 5.1850,
+      "type": "building"
+    },
+    {
+      "id": "node_chapel",
+      "name": "Chapel",
+      "lat": 7.2650,
+      "lng": 5.1950,
+      "type": "building"
+    },
+    {
+      "id": "node_conference_center",
+      "name": "Conference Center",
+      "lat": 7.2650,
+      "lng": 5.1900,
+      "type": "building"
+    },
+    {
+      "id": "node_library",
+      "name": "Main Library",
+      "lat": 7.2750,
+      "lng": 5.1880,
+      "type": "building"
+    },
+    {
+      "id": "node_library_junction",
+      "name": "Library Junction",
+      "lat": 7.2760,
+      "lng": 5.1900,
+      "type": "intersection"
+    },
+    {
+      "id": "node_bank",
+      "name": "First Bank",
+      "lat": 7.2750,
+      "lng": 5.1820,
+      "type": "building"
+    },
+    {
+      "id": "node_atm_plaza",
+      "name": "ATM Plaza",
+      "lat": 7.2700,
+      "lng": 5.1950,
+      "type": "building"
+    },
+    {
+      "id": "node_health_center",
+      "name": "Health Center",
+      "lat": 7.2750,
+      "lng": 5.1950,
+      "type": "building"
+    },
+    {
+      "id": "node_seet",
+      "name": "SEET Complex",
+      "lat": 7.2700,
+      "lng": 5.1900,
+      "type": "building"
+    },
+    {
+      "id": "node_saat",
+      "name": "SAAT Building",
+      "lat": 7.2660,
+      "lng": 5.1920,
+      "type": "building"
+    },
+    {
+      "id": "node_engineering",
+      "name": "Engineering Building",
+      "lat": 7.2680,
+      "lng": 5.1920,
+      "type": "building"
+    },
+    {
+      "id": "node_sciences",
+      "name": "Sciences Complex",
+      "lat": 7.2800,
+      "lng": 5.1850,
+      "type": "building"
+    },
+    {
+      "id": "node_ict_center",
+      "name": "ICT Center",
+      "lat": 7.2820,
+      "lng": 5.1910,
+      "type": "building"
+    },
+    {
+      "id": "node_lab_complex",
+      "name": "Laboratory Complex",
+      "lat": 7.2820,
+      "lng": 5.1850,
+      "type": "building"
+    },
+    {
+      "id": "node_innovation_hub",
+      "name": "Innovation Hub",
+      "lat": 7.2800,
+      "lng": 5.1980,
+      "type": "building"
+    },
+    {
+      "id": "node_faculty_arts",
+      "name": "Faculty of Arts",
+      "lat": 7.2850,
+      "lng": 5.1750,
+      "type": "building"
+    },
+    {
+      "id": "node_residence_hall",
+      "name": "Residence Hall 1",
+      "lat": 7.2750,
+      "lng": 5.1750,
+      "type": "building"
+    },
+    {
+      "id": "node_hostel_a",
+      "name": "Hostel A",
+      "lat": 7.2900,
+      "lng": 5.1750,
+      "type": "building"
+    },
+    {
+      "id": "node_hostel_b",
+      "name": "Hostel B",
+      "lat": 7.2920,
+      "lng": 5.1800,
+      "type": "building"
+    },
+    {
+      "id": "node_hostel_c",
+      "name": "Hostel C",
+      "lat": 7.2880,
+      "lng": 5.1850,
+      "type": "building"
+    },
+    {
+      "id": "node_alumni_lodge",
+      "name": "Alumni Lodge",
+      "lat": 7.2920,
+      "lng": 5.1920,
+      "type": "building"
+    },
+    {
+      "id": "node_main_cafeteria",
+      "name": "Main Cafeteria",
+      "lat": 7.2850,
+      "lng": 5.1880,
+      "type": "building"
+    },
+    {
+      "id": "node_food_court",
+      "name": "Food Court",
+      "lat": 7.2780,
+      "lng": 5.1920,
+      "type": "building"
+    },
+    {
+      "id": "node_student_center",
+      "name": "Student Center",
+      "lat": 7.2720,
+      "lng": 5.1900,
+      "type": "building"
+    },
+    {
+      "id": "node_internet_cafe",
+      "name": "Internet Café",
+      "lat": 7.2720,
+      "lng": 5.1910,
+      "type": "building"
+    },
+    {
+      "id": "node_sports_center",
+      "name": "Sports Center",
+      "lat": 7.2950,
+      "lng": 5.1900,
+      "type": "building"
+    },
+    {
+      "id": "node_football_pitch",
+      "name": "Football Pitch",
+      "lat": 7.2950,
+      "lng": 5.1820,
+      "type": "building"
+    },
+    {
+      "id": "node_tennis_court",
+      "name": "Tennis Courts",
+      "lat": 7.2980,
+      "lng": 5.1850,
+      "type": "building"
+    },
+    {
+      "id": "node_graduation_pavilion",
+      "name": "Graduation Pavilion",
+      "lat": 7.2900,
+      "lng": 5.1950,
+      "type": "building"
+    },
+    {
+      "id": "node_engineering_workshop",
+      "name": "Engineering Workshop",
+      "lat": 7.2730,
+      "lng": 5.1850,
+      "type": "building"
+    },
+    {
+      "id": "node_big_mango",
+      "name": "Big Mango Tree Junction",
+      "lat": 7.2800,
+      "lng": 5.1920,
+      "type": "landmark"
+    }
   ],
   "edges": [
-    { "from": "node_gate", "to": "node_inter_1", "distance": 800, "elevation_gain": 20 },
-    { "from": "node_inter_1", "to": "node_senate", "distance": 150, "elevation_gain": 5 },
-    { "from": "node_inter_1", "to": "node_seet", "distance": 50, "elevation_gain": 0 },
-    { "from": "node_inter_1", "to": "node_mango", "distance": 80, "elevation_gain": 2 },
-    { "from": "node_mango", "to": "node_inter_2", "distance": 250, "elevation_gain": 15 },
-    { "from": "node_inter_2", "to": "node_library", "distance": 70, "elevation_gain": 2 },
-    { "from": "node_inter_2", "to": "node_saat", "distance": 150, "elevation_gain": 10 }
+    {
+      "from": "node_main_gate",
+      "to": "node_security_post",
+      "distance": 60,
+      "elevation_gain": 2
+    },
+    {
+      "from": "node_security_post",
+      "to": "node_parking_main",
+      "distance": 100,
+      "elevation_gain": 5
+    },
+    {
+      "from": "node_parking_main",
+      "to": "node_admin_block",
+      "distance": 150,
+      "elevation_gain": 8
+    },
+    {
+      "from": "node_admin_block",
+      "to": "node_bookstore",
+      "distance": 50,
+      "elevation_gain": 2
+    },
+    {
+      "from": "node_bookstore",
+      "to": "node_student_affairs",
+      "distance": 80,
+      "elevation_gain": 3
+    },
+    {
+      "from": "node_student_affairs",
+      "to": "node_senate",
+      "distance": 100,
+      "elevation_gain": 4
+    },
+    {
+      "from": "node_senate",
+      "to": "node_seet",
+      "distance": 120,
+      "elevation_gain": 5
+    },
+    {
+      "from": "node_seet",
+      "to": "node_engineering",
+      "distance": 80,
+      "elevation_gain": 3
+    },
+    {
+      "from": "node_engineering",
+      "to": "node_saat",
+      "distance": 100,
+      "elevation_gain": 4
+    },
+    {
+      "from": "node_senate",
+      "to": "node_auditorium",
+      "distance": 60,
+      "elevation_gain": 2
+    },
+    {
+      "from": "node_auditorium",
+      "to": "node_conference_center",
+      "distance": 120,
+      "elevation_gain": 5
+    },
+    {
+      "from": "node_conference_center",
+      "to": "node_chapel",
+      "distance": 80,
+      "elevation_gain": 3
+    },
+    {
+      "from": "node_student_affairs",
+      "to": "node_library",
+      "distance": 150,
+      "elevation_gain": 6
+    },
+    {
+      "from": "node_library",
+      "to": "node_library_junction",
+      "distance": 40,
+      "elevation_gain": 1
+    },
+    {
+      "from": "node_library_junction",
+      "to": "node_big_mango",
+      "distance": 150,
+      "elevation_gain": 6
+    },
+    {
+      "from": "node_big_mango",
+      "to": "node_food_court",
+      "distance": 80,
+      "elevation_gain": 3
+    },
+    {
+      "from": "node_food_court",
+      "to": "node_main_cafeteria",
+      "distance": 100,
+      "elevation_gain": 4
+    },
+    {
+      "from": "node_big_mango",
+      "to": "node_seet",
+      "distance": 120,
+      "elevation_gain": 5
+    },
+    {
+      "from": "node_student_affairs",
+      "to": "node_bank",
+      "distance": 60,
+      "elevation_gain": 2
+    },
+    {
+      "from": "node_bank",
+      "to": "node_atm_plaza",
+      "distance": 120,
+      "elevation_gain": 4
+    },
+    {
+      "from": "node_atm_plaza",
+      "to": "node_health_center",
+      "distance": 100,
+      "elevation_gain": 3
+    },
+    {
+      "from": "node_seet",
+      "to": "node_student_center",
+      "distance": 90,
+      "elevation_gain": 3
+    },
+    {
+      "from": "node_student_center",
+      "to": "node_internet_cafe",
+      "distance": 50,
+      "elevation_gain": 1
+    },
+    {
+      "from": "node_library",
+      "to": "node_sciences",
+      "distance": 150,
+      "elevation_gain": 6
+    },
+    {
+      "from": "node_sciences",
+      "to": "node_ict_center",
+      "distance": 100,
+      "elevation_gain": 4
+    },
+    {
+      "from": "node_sciences",
+      "to": "node_lab_complex",
+      "distance": 60,
+      "elevation_gain": 2
+    },
+    {
+      "from": "node_sciences",
+      "to": "node_engineering_workshop",
+      "distance": 120,
+      "elevation_gain": 5
+    },
+    {
+      "from": "node_ict_center",
+      "to": "node_innovation_hub",
+      "distance": 80,
+      "elevation_gain": 3
+    },
+    {
+      "from": "node_faculty_arts",
+      "to": "node_residence_hall",
+      "distance": 120,
+      "elevation_gain": 5
+    },
+    {
+      "from": "node_residence_hall",
+      "to": "node_hostel_a",
+      "distance": 200,
+      "elevation_gain": 8
+    },
+    {
+      "from": "node_hostel_a",
+      "to": "node_hostel_b",
+      "distance": 150,
+      "elevation_gain": 6
+    },
+    {
+      "from": "node_hostel_b",
+      "to": "node_hostel_c",
+      "distance": 120,
+      "elevation_gain": 5
+    },
+    {
+      "from": "node_hostel_c",
+      "to": "node_alumni_lodge",
+      "distance": 100,
+      "elevation_gain": 4
+    },
+    {
+      "from": "node_alumni_lodge",
+      "to": "node_graduation_pavilion",
+      "distance": 80,
+      "elevation_gain": 3
+    },
+    {
+      "from": "node_sports_center",
+      "to": "node_football_pitch",
+      "distance": 120,
+      "elevation_gain": 5
+    },
+    {
+      "from": "node_football_pitch",
+      "to": "node_tennis_court",
+      "distance": 80,
+      "elevation_gain": 3
+    },
+    {
+      "from": "node_alumni_lodge",
+      "to": "node_sports_center",
+      "distance": 150,
+      "elevation_gain": 6
+    },
+    {
+      "from": "node_main_cafeteria",
+      "to": "node_sciences",
+      "distance": 120,
+      "elevation_gain": 5
+    },
+    {
+      "from": "node_big_mango",
+      "to": "node_alumni_lodge",
+      "distance": 200,
+      "elevation_gain": 8
+    },
+    {
+      "from": "node_sciences",
+      "to": "node_sports_center",
+      "distance": 180,
+      "elevation_gain": 7
+    },
+    {
+      "from": "node_main_cafeteria",
+      "to": "node_library",
+      "distance": 120,
+      "elevation_gain": 5
+    }
   ]
 }
