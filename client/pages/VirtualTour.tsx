@@ -7,11 +7,12 @@ import { useAnalytics } from "@/hooks/use-analytics";
 import { useUserId } from "@/hooks/use-auth";
 import {
   ChevronLeft, ChevronRight, MapPin, Users, BookOpen, Clock,
-  Star, Building2, ArrowLeft, Info, Play, X, RotateCw, Loader, Rotate3D
+  Star, Building2, ArrowLeft, Info, Play, X, RotateCw, Loader, Rotate3D, Edit2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link, useNavigate } from "react-router-dom";
 import PanoramaViewer from "@/components/PanoramaViewer";
+import EditBuildingModal from "@/components/EditBuildingModal";
 
 interface Building {
   id: string;
@@ -42,6 +43,7 @@ export default function VirtualTourPage() {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [show360, setShow360] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   // Fetch buildings from API
   useEffect(() => {
@@ -104,6 +106,31 @@ export default function VirtualTourPage() {
     setShow360(false);
   };
 
+  const handleSaveBuilding = async (updatedBuilding: Building) => {
+    try {
+      const response = await fetch(`/api/virtual-tour/buildings/${updatedBuilding.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedBuilding)
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update building");
+      }
+
+      const data = await response.json();
+
+      // Update local state
+      setBuildings(buildings.map(b => b.id === data.id ? data : b));
+      setSelectedBuilding(data);
+
+      alert("Building updated successfully!");
+    } catch (error) {
+      console.error("Error saving building:", error);
+      throw error;
+    }
+  };
+
   const categoryColors: Record<string, string> = {
     school: "bg-blue-100 text-blue-700",
     admin: "bg-purple-100 text-purple-700",
@@ -145,16 +172,26 @@ export default function VirtualTourPage() {
                     </Badge>
                     <h2 className="text-2xl font-bold">{selectedBuilding.name}</h2>
                   </div>
-                  {selectedBuilding.panorama_url && (
+                  <div className="flex items-center gap-2">
                     <Button
-                      variant={show360 ? "default" : "outline"}
-                      onClick={() => setShow360(!show360)}
+                      variant="outline"
+                      onClick={() => setIsEditModalOpen(true)}
                       className="gap-2 font-bold"
                     >
-                      <Rotate3D className="h-4 w-4" />
-                      {show360 ? "Photos" : "360° View"}
+                      <Edit2 className="h-4 w-4" />
+                      Edit
                     </Button>
-                  )}
+                    {selectedBuilding.panorama_url && (
+                      <Button
+                        variant={show360 ? "default" : "outline"}
+                        onClick={() => setShow360(!show360)}
+                        className="gap-2 font-bold"
+                      >
+                        <Rotate3D className="h-4 w-4" />
+                        {show360 ? "Photos" : "360° View"}
+                      </Button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="relative aspect-video rounded-3xl overflow-hidden bg-black shadow-2xl group">
@@ -321,6 +358,15 @@ export default function VirtualTourPage() {
             </div>
           )}
         </div>
+
+        {selectedBuilding && (
+          <EditBuildingModal
+            building={selectedBuilding}
+            open={isEditModalOpen}
+            onOpenChange={setIsEditModalOpen}
+            onSave={handleSaveBuilding}
+          />
+        )}
       </div>
     </Layout>
   );
