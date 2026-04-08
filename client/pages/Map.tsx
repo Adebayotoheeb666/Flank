@@ -521,13 +521,6 @@ export default function MapPage() {
             style={{ width: '100%', height: '100%' }}
           />
 
-          <div className="absolute bottom-4 left-4 z-50 p-2 bg-black/80 text-white text-[10px] rounded border border-white/20 pointer-events-none">
-            <p>API Key: {debugInfo.keyStatus}</p>
-            <p>Status: {debugInfo.status || "initializing"}</p>
-            {debugInfo.layers !== undefined && <p>Layers: {debugInfo.layers}</p>}
-            {debugInfo.center && <p>Center: {debugInfo.center}</p>}
-            {debugInfo.error && <p className="text-red-400">Error: {debugInfo.error}</p>}
-          </div>
 
           {/* Map Controls (Overlaying Mapbox) */}
           <div className="absolute right-6 top-6 flex flex-col gap-2 z-40">
