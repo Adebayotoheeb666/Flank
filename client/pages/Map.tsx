@@ -125,6 +125,43 @@ export default function MapPage() {
         }));
       });
 
+      // Handle missing images by adding placeholder icons
+      map.current.on('styleimagemissing', (e) => {
+        const id = e.id;
+        console.log(`[Map] Missing image: ${id}, adding placeholder`);
+
+        if (!map.current?.hasImage(id)) {
+          // Create a simple placeholder canvas image
+          const canvas = document.createElement('canvas');
+          canvas.width = 32;
+          canvas.height = 32;
+          const ctx = canvas.getContext('2d');
+
+          if (ctx) {
+            // Fill with a light gray background
+            ctx.fillStyle = '#e5e7eb';
+            ctx.fillRect(0, 0, 32, 32);
+
+            // Add a border
+            ctx.strokeStyle = '#6b7280';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(0, 0, 32, 32);
+
+            // Add a center dot
+            ctx.fillStyle = '#6b7280';
+            ctx.beginPath();
+            ctx.arc(16, 16, 4, 0, Math.PI * 2);
+            ctx.fill();
+          }
+
+          try {
+            map.current?.addImage(id, canvas);
+          } catch (err) {
+            console.warn(`Failed to add image ${id}:`, err);
+          }
+        }
+      });
+
       map.current.on('moveend', () => {
         if (map.current) {
           const center = map.current.getCenter();
@@ -356,20 +393,35 @@ export default function MapPage() {
 
       trackNavigation("current_location", selectedLocation.name, "map_click", data.total_distance);
     } catch (error: any) {
-      console.error("Navigation error:", error);
-      let message = error.message || "Failed to start navigation.";
+      // Properly extract error details
+      let message = "Failed to start navigation.";
 
-      // Handle geolocation specific errors if it was a GeolocationPositionError
-      if (error instanceof GeolocationPositionError || error.code !== undefined) {
-        if (error.code === 1) message = "Location access denied. Please enable location permissions in search/navigation.";
-        else if (error.code === 2) message = "Location information is unavailable.";
-        else if (error.code === 3) message = "Location request timed out. Please try again.";
+      // Handle GeolocationPositionError
+      if (error && typeof error === 'object' && 'code' in error) {
+        console.error("Navigation geolocation error - Code:", error.code, "Message:", error.message);
+
+        if (error.code === 1) {
+          message = "Location access denied. Please enable location permissions in settings.";
+        } else if (error.code === 2) {
+          message = "Location information is unavailable. Please check your connection and try again.";
+        } else if (error.code === 3) {
+          message = "Location request timed out. Please try again.";
+        } else {
+          message = error.message || "Unable to get your location.";
+        }
+      } else if (error instanceof Error) {
+        console.error("Navigation error:", error.message);
+        message = error.message;
+      } else {
+        console.error("Navigation error:", error);
+        message = String(error) || "An unknown error occurred.";
       }
 
       if (!window.isSecureContext) {
         message += " Note: Geolocation requires a secure (HTTPS) connection.";
       }
 
+      setLocationStatus(`Error: ${message}`);
       alert(message);
     } finally {
       setIsLocating(false);

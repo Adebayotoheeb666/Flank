@@ -133,11 +133,23 @@ export default function EmergencyPage() {
                 })
               });
             } catch (error) {
-              console.error("Failed to update location:", error);
+              console.error("Failed to update location:", error instanceof Error ? error.message : String(error));
             }
           }
         },
-        (error) => console.error("Location error:", error)
+        (error: any) => {
+          let message = "Location tracking error";
+          if (error && typeof error === 'object' && 'code' in error) {
+            if (error.code === 1) {
+              message = "Location access denied - check permissions";
+            } else if (error.code === 2) {
+              message = "Location information unavailable";
+            } else if (error.code === 3) {
+              message = "Location request timed out";
+            }
+          }
+          console.error(message, error);
+        }
       );
 
       return () => {
