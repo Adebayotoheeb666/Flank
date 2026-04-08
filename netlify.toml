@@ -1,12 +1,12 @@
 [build]
-  command = "npm run build:client"
+  command = "npm run build:client && npm run build:server"
   functions = "netlify/functions"
   publish = "dist/spa"
 
 
 [functions]
   node_bundler = "esbuild"
-  
+
 [[redirects]]
   force = true
   from = "/api/*"
@@ -17,3 +17,14 @@
   from = "/*"
   to = "/index.html"
   status = 200
+
+[[headers]]
+  for = "/manifest.json"
+  [headers.values]
+    Content-Type = "application/manifest+json"
+
+[[headers]]
+  for = "/service-worker.js"
+  [headers.values]
+    Content-Type = "application/javascript"
+    Service-Worker-Allowed = "/"

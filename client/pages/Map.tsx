@@ -125,6 +125,43 @@ export default function MapPage() {
         }));
       });
 
+      // Handle missing images by adding placeholder icons
+      map.current.on('styleimagemissing', (e) => {
+        const id = e.id;
+        console.log(`[Map] Missing image: ${id}, adding placeholder`);
+
+        if (!map.current?.hasImage(id)) {
+          // Create a simple placeholder canvas image
+          const canvas = document.createElement('canvas');
+          canvas.width = 32;
+          canvas.height = 32;
+          const ctx = canvas.getContext('2d');
+
+          if (ctx) {
+            // Fill with a light gray background
+            ctx.fillStyle = '#e5e7eb';
+            ctx.fillRect(0, 0, 32, 32);
+
+            // Add a border
+            ctx.strokeStyle = '#6b7280';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(0, 0, 32, 32);
+
+            // Add a center dot
+            ctx.fillStyle = '#6b7280';
+            ctx.beginPath();
+            ctx.arc(16, 16, 4, 0, Math.PI * 2);
+            ctx.fill();
+          }
+
+          try {
+            map.current?.addImage(id, canvas);
+          } catch (err) {
+            console.warn(`Failed to add image ${id}:`, err);
+          }
+        }
+      });
+
       map.current.on('moveend', () => {
         if (map.current) {
           const center = map.current.getCenter();
