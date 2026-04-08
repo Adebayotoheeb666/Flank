@@ -1,0 +1,626 @@
+{
+  "locations": [
+    {
+      "id": "loc_main_gate",
+      "name": "Main Gate",
+      "type": "Landmark",
+      "category": "admin",
+      "description": "Main entrance to FUTA campus",
+      "coordinates": {
+        "lat": 7.2620,
+        "lng": 5.1820
+      },
+      "metadata": {
+        "opening_hours": "24/7",
+        "contact": "+234-52-250409",
+        "building_code": "GATE-001"
+      }
+    },
+    {
+      "id": "loc_senate_building",
+      "name": "Senate Building",
+      "type": "Administrative Building",
+      "category": "admin",
+      "description": "University Senate and administrative offices",
+      "coordinates": {
+        "lat": 7.2680,
+        "lng": 5.1850
+      },
+      "metadata": {
+        "opening_hours": "8:00 AM - 5:00 PM",
+        "contact": "+234-52-250500",
+        "building_code": "ADMIN-001"
+      }
+    },
+    {
+      "id": "loc_main_library",
+      "name": "Oladipo Akinola Main Library",
+      "type": "Library",
+      "category": "school",
+      "description": "University main library with reading halls and research facilities",
+      "coordinates": {
+        "lat": 7.2750,
+        "lng": 5.1880
+      },
+      "metadata": {
+        "opening_hours": "7:30 AM - 9:00 PM",
+        "contact": "+234-52-250456",
+        "building_code": "LIB-001",
+        "floors": 4,
+        "reading_spaces": 800
+      }
+    },
+    {
+      "id": "loc_seet_complex",
+      "name": "SEET Complex",
+      "type": "School Building",
+      "category": "school",
+      "description": "School of Electrical and Engineering Technology",
+      "coordinates": {
+        "lat": 7.2700,
+        "lng": 5.1900
+      },
+      "metadata": {
+        "opening_hours": "8:00 AM - 6:00 PM",
+        "contact": "+234-52-250650",
+        "building_code": "SEET-001",
+        "departments": ["Electrical Engineering", "Electronics and Electrical Engineering"]
+      }
+    },
+    {
+      "id": "loc_saat_building",
+      "name": "SAAT Building",
+      "type": "School Building",
+      "category": "school",
+      "description": "School of Agriculture and Agricultural Technology",
+      "coordinates": {
+        "lat": 7.2660,
+        "lng": 5.1920
+      },
+      "metadata": {
+        "opening_hours": "8:00 AM - 6:00 PM",
+        "contact": "+234-52-250720",
+        "building_code": "SAAT-001",
+        "departments": ["Agricultural Engineering", "Food Science", "Soil Science"]
+      }
+    },
+    {
+      "id": "loc_sciences_complex",
+      "name": "School of Sciences Complex",
+      "type": "School Building",
+      "category": "school",
+      "description": "Multiple departments - Physics, Chemistry, Biology, Mathematics",
+      "coordinates": {
+        "lat": 7.2800,
+        "lng": 5.1850
+      },
+      "metadata": {
+        "opening_hours": "8:00 AM - 6:00 PM",
+        "contact": "+234-52-250780",
+        "building_code": "SCI-001",
+        "departments": ["Physics", "Chemistry", "Biology", "Mathematics", "Microbiology"]
+      }
+    },
+    {
+      "id": "loc_admin_block_a",
+      "name": "Administrative Block A",
+      "type": "Administrative Building",
+      "category": "admin",
+      "description": "Registrar's office, admissions, and student affairs",
+      "coordinates": {
+        "lat": 7.2700,
+        "lng": 5.1820
+      },
+      "metadata": {
+        "opening_hours": "8:00 AM - 4:30 PM",
+        "contact": "+234-52-250409",
+        "building_code": "ADMIN-A"
+      }
+    },
+    {
+      "id": "loc_student_center",
+      "name": "Student Center",
+      "type": "Student Facility",
+      "category": "venue",
+      "description": "Student center with conference halls and meeting rooms",
+      "coordinates": {
+        "lat": 7.2720,
+        "lng": 5.1900
+      },
+      "metadata": {
+        "opening_hours": "7:00 AM - 10:00 PM",
+        "contact": "+234-52-250567",
+        "building_code": "SC-001",
+        "capacity": 500
+      }
+    },
+    {
+      "id": "loc_health_center",
+      "name": "University Health Center",
+      "type": "Medical Facility",
+      "category": "health",
+      "description": "Medical clinic and emergency services",
+      "coordinates": {
+        "lat": 7.2750,
+        "lng": 5.1950
+      },
+      "metadata": {
+        "opening_hours": "24/7",
+        "contact": "+234-52-250890",
+        "building_code": "HC-001",
+        "departments": ["General Medicine", "Emergency", "Pharmacy"]
+      }
+    },
+    {
+      "id": "loc_main_cafeteria",
+      "name": "Main Cafeteria",
+      "type": "Dining Facility",
+      "category": "food",
+      "description": "University main cafeteria with multiple food vendors",
+      "coordinates": {
+        "lat": 7.2850,
+        "lng": 5.1880
+      },
+      "metadata": {
+        "opening_hours": "7:00 AM - 9:00 PM",
+        "contact": "+234-52-250234",
+        "building_code": "CAF-001",
+        "seating_capacity": 2000
+      }
+    },
+    {
+      "id": "loc_food_court",
+      "name": "Food Court",
+      "type": "Dining Facility",
+      "category": "food",
+      "description": "Casual dining area with multiple food stalls",
+      "coordinates": {
+        "lat": 7.2780,
+        "lng": 5.1920
+      },
+      "metadata": {
+        "opening_hours": "8:00 AM - 8:00 PM",
+        "contact": "+234-52-250345",
+        "building_code": "FC-001",
+        "vendors": 15
+      }
+    },
+    {
+      "id": "loc_hostel_a",
+      "name": "Hostel A (Ikenga)",
+      "type": "Student Hostel",
+      "category": "hostel",
+      "description": "Male students hostel - 400 capacity",
+      "coordinates": {
+        "lat": 7.2900,
+        "lng": 5.1750
+      },
+      "metadata": {
+        "opening_hours": "24/7",
+        "contact": "+234-52-250456",
+        "building_code": "HOSTEL-A",
+        "capacity": 400,
+        "gender": "Male"
+      }
+    },
+    {
+      "id": "loc_hostel_b",
+      "name": "Hostel B (Oduduwa)",
+      "type": "Student Hostel",
+      "category": "hostel",
+      "description": "Female students hostel - 300 capacity",
+      "coordinates": {
+        "lat": 7.2920,
+        "lng": 5.1800
+      },
+      "metadata": {
+        "opening_hours": "24/7",
+        "contact": "+234-52-250567",
+        "building_code": "HOSTEL-B",
+        "capacity": 300,
+        "gender": "Female"
+      }
+    },
+    {
+      "id": "loc_hostel_c",
+      "name": "Hostel C (Oba Ajagunna)",
+      "type": "Student Hostel",
+      "category": "hostel",
+      "description": "Mixed students hostel - 250 capacity",
+      "coordinates": {
+        "lat": 7.2880,
+        "lng": 5.1850
+      },
+      "metadata": {
+        "opening_hours": "24/7",
+        "contact": "+234-52-250678",
+        "building_code": "HOSTEL-C",
+        "capacity": 250,
+        "gender": "Mixed"
+      }
+    },
+    {
+      "id": "loc_bank_futa",
+      "name": "First Bank (FUTA Branch)",
+      "type": "Banking Service",
+      "category": "bank",
+      "description": "First Bank branch on campus",
+      "coordinates": {
+        "lat": 7.2750,
+        "lng": 5.1820
+      },
+      "metadata": {
+        "opening_hours": "9:00 AM - 3:00 PM",
+        "contact": "+234-52-250789",
+        "building_code": "BANK-FB",
+        "atm": true
+      }
+    },
+    {
+      "id": "loc_atm_plaza",
+      "name": "ATM Plaza",
+      "type": "Banking Service",
+      "category": "bank",
+      "description": "ATM machines - 24/7 access",
+      "coordinates": {
+        "lat": 7.2700,
+        "lng": 5.1950
+      },
+      "metadata": {
+        "opening_hours": "24/7",
+        "contact": "N/A",
+        "building_code": "ATM-001",
+        "machines": 8
+      }
+    },
+    {
+      "id": "loc_conference_center",
+      "name": "Conference Center",
+      "type": "Conference Hall",
+      "category": "venue",
+      "description": "Multi-purpose conference hall for events and seminars",
+      "coordinates": {
+        "lat": 7.2650,
+        "lng": 5.1900
+      },
+      "metadata": {
+        "opening_hours": "8:00 AM - 8:00 PM",
+        "contact": "+234-52-250999",
+        "building_code": "CONF-001",
+        "capacity": 1500
+      }
+    },
+    {
+      "id": "loc_sports_center",
+      "name": "Sports Center",
+      "type": "Sports Facility",
+      "category": "venue",
+      "description": "Multi-purpose sports arena and gym facilities",
+      "coordinates": {
+        "lat": 7.2950,
+        "lng": 5.1900
+      },
+      "metadata": {
+        "opening_hours": "6:00 AM - 10:00 PM",
+        "contact": "+234-52-250888",
+        "building_code": "SPORT-001",
+        "facilities": ["Basketball Court", "Volleyball Court", "Gym", "Swimming Pool"]
+      }
+    },
+    {
+      "id": "loc_ict_center",
+      "name": "ICT Center",
+      "type": "Computer Lab",
+      "category": "school",
+      "description": "Information and Communication Technology center with computer labs",
+      "coordinates": {
+        "lat": 7.2820,
+        "lng": 5.1910
+      },
+      "metadata": {
+        "opening_hours": "7:00 AM - 9:00 PM",
+        "contact": "+234-52-250555",
+        "building_code": "ICT-001",
+        "computer_stations": 150
+      }
+    },
+    {
+      "id": "loc_engineering_workshop",
+      "name": "Engineering Workshop",
+      "type": "Workshop",
+      "category": "school",
+      "description": "Engineering and technical workshop facilities",
+      "coordinates": {
+        "lat": 7.2730,
+        "lng": 5.1850
+      },
+      "metadata": {
+        "opening_hours": "7:00 AM - 6:00 PM",
+        "contact": "+234-52-250666",
+        "building_code": "EWS-001"
+      }
+    },
+    {
+      "id": "loc_auditorium",
+      "name": "Auditorium",
+      "type": "Auditorium",
+      "category": "venue",
+      "description": "University auditorium for lectures and events",
+      "coordinates": {
+        "lat": 7.2670,
+        "lng": 5.1850
+      },
+      "metadata": {
+        "opening_hours": "8:00 AM - 8:00 PM",
+        "contact": "+234-52-250777",
+        "building_code": "AUD-001",
+        "capacity": 800
+      }
+    },
+    {
+      "id": "loc_graduation_pavilion",
+      "name": "Graduation Pavilion",
+      "type": "Event Venue",
+      "category": "venue",
+      "description": "Outdoor pavilion for ceremonies and events",
+      "coordinates": {
+        "lat": 7.2900,
+        "lng": 5.1950
+      },
+      "metadata": {
+        "opening_hours": "Variable",
+        "contact": "+234-52-250888",
+        "building_code": "PAV-001",
+        "capacity": 3000
+      }
+    },
+    {
+      "id": "loc_bookstore",
+      "name": "University Bookstore",
+      "type": "Retail",
+      "category": "venue",
+      "description": "Books, stationery, and academic materials",
+      "coordinates": {
+        "lat": 7.2710,
+        "lng": 5.1830
+      },
+      "metadata": {
+        "opening_hours": "8:00 AM - 6:00 PM",
+        "contact": "+234-52-250444",
+        "building_code": "BOOK-001"
+      }
+    },
+    {
+      "id": "loc_security_post_main",
+      "name": "Security Post (Main)",
+      "type": "Security",
+      "category": "admin",
+      "description": "Campus security headquarters",
+      "coordinates": {
+        "lat": 7.2625,
+        "lng": 5.1825
+      },
+      "metadata": {
+        "opening_hours": "24/7",
+        "contact": "+234-52-250777 (Emergency)",
+        "building_code": "SEC-001"
+      }
+    },
+    {
+      "id": "loc_big_mango_tree",
+      "name": "Big Mango Tree Junction",
+      "type": "Landmark",
+      "category": "venue",
+      "description": "Famous landmark - good meeting point",
+      "coordinates": {
+        "lat": 7.2800,
+        "lng": 5.1920
+      },
+      "metadata": {
+        "opening_hours": "24/7",
+        "contact": "N/A",
+        "building_code": "LANDMARK-001"
+      }
+    },
+    {
+      "id": "loc_faculty_arts",
+      "name": "Faculty of Arts Building",
+      "type": "School Building",
+      "category": "school",
+      "description": "Faculty of Arts - English, History, Languages departments",
+      "coordinates": {
+        "lat": 7.2850,
+        "lng": 5.1750
+      },
+      "metadata": {
+        "opening_hours": "8:00 AM - 6:00 PM",
+        "contact": "+234-52-250111",
+        "building_code": "ARTS-001",
+        "departments": ["English", "History", "Modern Languages"]
+      }
+    },
+    {
+      "id": "loc_engineering_building",
+      "name": "Faculty of Engineering Building",
+      "type": "School Building",
+      "category": "school",
+      "description": "Faculty of Engineering - Civil, Mechanical, Chemical Engineering",
+      "coordinates": {
+        "lat": 7.2680,
+        "lng": 5.1920
+      },
+      "metadata": {
+        "opening_hours": "8:00 AM - 6:00 PM",
+        "contact": "+234-52-250222",
+        "building_code": "ENG-001",
+        "departments": ["Civil Engineering", "Mechanical Engineering", "Chemical Engineering"]
+      }
+    },
+    {
+      "id": "loc_student_affairs",
+      "name": "Student Affairs Office",
+      "type": "Administrative Building",
+      "category": "admin",
+      "description": "Student services, accommodation, and welfare",
+      "coordinates": {
+        "lat": 7.2710,
+        "lng": 5.1850
+      },
+      "metadata": {
+        "opening_hours": "8:00 AM - 4:30 PM",
+        "contact": "+234-52-250333",
+        "building_code": "STUD-001"
+      }
+    },
+    {
+      "id": "loc_alumni_lodge",
+      "name": "Alumni Lodge",
+      "type": "Guest House",
+      "category": "venue",
+      "description": "Guest accommodation for visitors and alumni",
+      "coordinates": {
+        "lat": 7.2920,
+        "lng": 5.1920
+      },
+      "metadata": {
+        "opening_hours": "24/7",
+        "contact": "+234-52-250556",
+        "building_code": "ALUM-001",
+        "rooms": 30
+      }
+    },
+    {
+      "id": "loc_residence_hall_1",
+      "name": "Residence Hall 1",
+      "type": "Student Hostel",
+      "category": "hostel",
+      "description": "Modern residence hall for postgraduate students",
+      "coordinates": {
+        "lat": 7.2750,
+        "lng": 5.1750
+      },
+      "metadata": {
+        "opening_hours": "24/7",
+        "contact": "+234-52-250667",
+        "building_code": "RESI-001",
+        "capacity": 200
+      }
+    },
+    {
+      "id": "loc_internet_cafe",
+      "name": "Internet Café",
+      "type": "ICT Facility",
+      "category": "venue",
+      "description": "Internet access and printing services",
+      "coordinates": {
+        "lat": 7.2720,
+        "lng": 5.1910
+      },
+      "metadata": {
+        "opening_hours": "7:00 AM - 10:00 PM",
+        "contact": "+234-52-250778",
+        "building_code": "NET-001",
+        "computers": 40
+      }
+    },
+    {
+      "id": "loc_chapel",
+      "name": "University Chapel",
+      "type": "Religious Facility",
+      "category": "venue",
+      "description": "Multi-faith worship center",
+      "coordinates": {
+        "lat": 7.2650,
+        "lng": 5.1950
+      },
+      "metadata": {
+        "opening_hours": "Variable",
+        "contact": "+234-52-250899",
+        "building_code": "CHAP-001",
+        "capacity": 500
+      }
+    },
+    {
+      "id": "loc_innovation_hub",
+      "name": "FUTA Innovation Hub",
+      "type": "Research Facility",
+      "category": "school",
+      "description": "Center for innovation and entrepreneurship",
+      "coordinates": {
+        "lat": 7.2800,
+        "lng": 5.1980
+      },
+      "metadata": {
+        "opening_hours": "8:00 AM - 6:00 PM",
+        "contact": "+234-52-250555",
+        "building_code": "INNOV-001"
+      }
+    },
+    {
+      "id": "loc_laboratory_complex",
+      "name": "Laboratory Complex",
+      "type": "Research Lab",
+      "category": "school",
+      "description": "Science and engineering research laboratories",
+      "coordinates": {
+        "lat": 7.2820,
+        "lng": 5.1850
+      },
+      "metadata": {
+        "opening_hours": "7:00 AM - 7:00 PM",
+        "contact": "+234-52-250888",
+        "building_code": "LAB-001"
+      }
+    },
+    {
+      "id": "loc_parking_area_main",
+      "name": "Main Parking Area",
+      "type": "Parking",
+      "category": "venue",
+      "description": "Large parking area for students and staff",
+      "coordinates": {
+        "lat": 7.2600,
+        "lng": 5.1850
+      },
+      "metadata": {
+        "opening_hours": "24/7",
+        "contact": "N/A",
+        "building_code": "PARK-001",
+        "capacity": 500
+      }
+    },
+    {
+      "id": "loc_tennis_court",
+      "name": "Tennis Courts",
+      "type": "Sports Facility",
+      "category": "venue",
+      "description": "Tennis courts for recreational use",
+      "coordinates": {
+        "lat": 7.2980,
+        "lng": 5.1850
+      },
+      "metadata": {
+        "opening_hours": "6:00 AM - 10:00 PM",
+        "contact": "+234-52-250888",
+        "building_code": "TENN-001",
+        "courts": 4
+      }
+    },
+    {
+      "id": "loc_football_pitch",
+      "name": "Football Pitch",
+      "type": "Sports Facility",
+      "category": "venue",
+      "description": "Main football/soccer field",
+      "coordinates": {
+        "lat": 7.2950,
+        "lng": 5.1820
+      },
+      "metadata": {
+        "opening_hours": "6:00 AM - 10:00 PM",
+        "contact": "+234-52-250888",
+        "building_code": "FOOT-001"
+      }
+    }
+  ]
+}
