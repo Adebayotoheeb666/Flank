@@ -65,7 +65,27 @@ export default function TimetablePage() {
 
       // Get current location
       const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject);
+        if (!navigator.geolocation) {
+          reject(new Error("Geolocation is not supported"));
+          return;
+        }
+
+        navigator.geolocation.getCurrentPosition(resolve, (err) => {
+          // Extract error details from GeolocationPositionError
+          let message = "Failed to get location";
+          if (err.code === 1) {
+            message = "Location access denied";
+          } else if (err.code === 2) {
+            message = "Location information unavailable";
+          } else if (err.code === 3) {
+            message = "Location request timed out";
+          }
+          reject(new Error(message));
+        }, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 60000
+        });
       });
 
       const { latitude, longitude } = position.coords;
@@ -95,8 +115,9 @@ export default function TimetablePage() {
           trackNavigation(studentId, venue, "route_reminder", data.distanceMeters);
         }
       }
-    } catch (error) {
-      console.error("Failed to calculate route reminder:", error);
+    } catch (error: any) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error("Failed to calculate route reminder:", errorMsg);
     } finally {
       setLoadingReminder(null);
     }

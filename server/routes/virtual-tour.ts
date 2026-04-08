@@ -129,6 +129,68 @@ export const handleCreateTourBuilding: RequestHandler = async (req, res) => {
 };
 
 /**
+ * PATCH /api/virtual-tour/buildings/:buildingId
+ * Update a building tour
+ */
+export const handleUpdateTourBuilding: RequestHandler = async (req, res) => {
+  try {
+    const { buildingId } = req.params;
+    const updates = req.body;
+
+    if (!buildingId) {
+      return res.status(400).json({ error: "Missing building ID" });
+    }
+
+    // Only allow updating specific fields
+    const allowedFields = [
+      "name",
+      "short_name",
+      "category",
+      "image_url",
+      "image_gallery",
+      "panorama_url",
+      "video_url",
+      "description",
+      "history",
+      "academic_depts",
+      "facilities",
+      "student_capacity",
+      "year_built",
+      "coordinates",
+      "is_featured"
+    ];
+
+    const safeUpdates: any = {};
+    for (const key of allowedFields) {
+      if (key in updates) {
+        safeUpdates[key] = updates[key];
+      }
+    }
+
+    const { data, error } = await supabase
+      .from("virtual_tour_buildings")
+      .update(safeUpdates)
+      .eq("id", buildingId)
+      .select()
+      .single();
+
+    if (error && error.code === "PGRST116") {
+      return res.status(404).json({ error: "Building not found" });
+    }
+
+    if (error) {
+      console.error("Supabase Error:", error);
+      return res.status(500).json({ error: "Failed to update building tour" });
+    }
+
+    res.json(data);
+  } catch (error) {
+    console.error("Update building error:", error);
+    res.status(500).json({ error: "Failed to update building tour" });
+  }
+};
+
+/**
  * GET /api/virtual-tour/highlights
  * Get highlighted/featured buildings for the tour intro
  */

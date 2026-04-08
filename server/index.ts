@@ -54,6 +54,7 @@ import {
   handleGetTourBuildings,
   handleGetTourBuilding,
   handleCreateTourBuilding,
+  handleUpdateTourBuilding,
   handleGetHighlights,
   handleLogTourView
 } from "./routes/virtual-tour";
@@ -132,6 +133,7 @@ export function createServer() {
   app.get("/api/virtual-tour/buildings", handleGetTourBuildings);
   app.get("/api/virtual-tour/buildings/:buildingId", handleGetTourBuilding);
   app.post("/api/virtual-tour/buildings", handleCreateTourBuilding);
+  app.patch("/api/virtual-tour/buildings/:buildingId", handleUpdateTourBuilding);
   app.get("/api/virtual-tour/highlights", handleGetHighlights);
   app.post("/api/virtual-tour/buildings/:buildingId/view", handleLogTourView);
 

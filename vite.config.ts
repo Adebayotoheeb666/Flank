@@ -17,12 +17,14 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     outDir: "dist/spa",
+    copyPublicDir: true,
   },
   plugins: [
     react(),
     expressPlugin(),
     VitePWA({
       registerType: "autoUpdate",
+      filename: "service-worker.js",
       includeAssets: ["favicon.ico", "apple-touch-icon.png", "mask-icon.svg"],
       manifest: {
         name: "FUTA Pathfinder",

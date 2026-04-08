@@ -125,6 +125,43 @@ export default function MapPage() {
         }));
       });
 
+      // Handle missing images by adding placeholder icons
+      map.current.on('styleimagemissing', (e) => {
+        const id = e.id;
+        console.log(`[Map] Missing image: ${id}, adding placeholder`);
+
+        if (!map.current?.hasImage(id)) {
+          // Create a simple placeholder canvas image
+          const canvas = document.createElement('canvas');
+          canvas.width = 32;
+          canvas.height = 32;
+          const ctx = canvas.getContext('2d');
+
+          if (ctx) {
+            // Fill with a light gray background
+            ctx.fillStyle = '#e5e7eb';
+            ctx.fillRect(0, 0, 32, 32);
+
+            // Add a border
+            ctx.strokeStyle = '#6b7280';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(0, 0, 32, 32);
+
+            // Add a center dot
+            ctx.fillStyle = '#6b7280';
+            ctx.beginPath();
+            ctx.arc(16, 16, 4, 0, Math.PI * 2);
+            ctx.fill();
+          }
+
+          try {
+            map.current?.addImage(id, canvas);
+          } catch (err) {
+            console.warn(`Failed to add image ${id}:`, err);
+          }
+        }
+      });
+
       map.current.on('moveend', () => {
         if (map.current) {
           const center = map.current.getCenter();
@@ -308,25 +345,12 @@ export default function MapPage() {
         }
 
         const options = {
-          enableHighAccuracy: true,
-          timeout: 15000,
-          maximumAge: 60000 // Allow 1 minute old cached location
+          enableHighAccuracy: false, // Use WiFi/cellular triangulation for speed
+          timeout: 8000, // 8 seconds should be plenty for most devices
+          maximumAge: 30000 // Allow 30 seconds old cached location
         };
 
-        navigator.geolocation.getCurrentPosition(resolve, (err) => {
-          // Fallback if high accuracy fails with code 2 or 3
-          if (err.code === 2 || err.code === 3) {
-            console.warn("High accuracy failed, retrying with low accuracy...");
-            setLocationStatus("Searching with weak signal...");
-            navigator.geolocation.getCurrentPosition(resolve, reject, {
-              ...options,
-              enableHighAccuracy: false,
-              timeout: 20000
-            });
-          } else {
-            reject(err);
-          }
-        }, options);
+        navigator.geolocation.getCurrentPosition(resolve, reject, options);
       });
       setLocationStatus("Location found!");
 
@@ -356,20 +380,35 @@ export default function MapPage() {
 
       trackNavigation("current_location", selectedLocation.name, "map_click", data.total_distance);
     } catch (error: any) {
-      console.error("Navigation error:", error);
-      let message = error.message || "Failed to start navigation.";
+      // Properly extract error details
+      let message = "Failed to start navigation.";
 
-      // Handle geolocation specific errors if it was a GeolocationPositionError
-      if (error instanceof GeolocationPositionError || error.code !== undefined) {
-        if (error.code === 1) message = "Location access denied. Please enable location permissions in search/navigation.";
-        else if (error.code === 2) message = "Location information is unavailable.";
-        else if (error.code === 3) message = "Location request timed out. Please try again.";
+      // Handle GeolocationPositionError
+      if (error && typeof error === 'object' && 'code' in error) {
+        console.error("Navigation geolocation error - Code:", error.code, "Message:", error.message);
+
+        if (error.code === 1) {
+          message = "Location access denied. Please enable location permissions in settings.";
+        } else if (error.code === 2) {
+          message = "Location information is unavailable. Please check your connection and try again.";
+        } else if (error.code === 3) {
+          message = "Location request timed out. Please try again.";
+        } else {
+          message = error.message || "Unable to get your location.";
+        }
+      } else if (error instanceof Error) {
+        console.error("Navigation error:", error.message);
+        message = error.message;
+      } else {
+        console.error("Navigation error:", error);
+        message = String(error) || "An unknown error occurred.";
       }
 
       if (!window.isSecureContext) {
         message += " Note: Geolocation requires a secure (HTTPS) connection.";
       }
 
+      setLocationStatus(`Error: ${message}`);
       alert(message);
     } finally {
       setIsLocating(false);
@@ -469,13 +508,6 @@ export default function MapPage() {
             style={{ width: '100%', height: '100%' }}
           />
 
-          <div className="absolute bottom-4 left-4 z-50 p-2 bg-black/80 text-white text-[10px] rounded border border-white/20 pointer-events-none">
-            <p>API Key: {debugInfo.keyStatus}</p>
-            <p>Status: {debugInfo.status || "initializing"}</p>
-            {debugInfo.layers !== undefined && <p>Layers: {debugInfo.layers}</p>}
-            {debugInfo.center && <p>Center: {debugInfo.center}</p>}
-            {debugInfo.error && <p className="text-red-400">Error: {debugInfo.error}</p>}
-          </div>
 
           {/* Map Controls (Overlaying Mapbox) */}
           <div className="absolute right-6 top-6 flex flex-col gap-2 z-40">
@@ -499,59 +531,45 @@ export default function MapPage() {
                 }
 
                 setIsLocating(true);
-                setLocationStatus("Searching for you...");
+                setLocationStatus("Finding your location...");
                 const options = {
-                  enableHighAccuracy: true,
-                  timeout: 15000,
-                  maximumAge: 60000 // Allow cached location
+                  enableHighAccuracy: false, // Use WiFi/cellular triangulation for speed
+                  timeout: 8000, // 8 seconds should be plenty for most devices
+                  maximumAge: 30000 // Allow 30 seconds old cached location
                 };
 
-                const success = (pos: GeolocationPosition) => {
-                  setLocationStatus("Caught you!");
-                  if (map.current) {
-                    map.current.flyTo({
-                      center: [pos.coords.longitude, pos.coords.latitude],
-                      zoom: 16,
-                      essential: true
-                    });
-                  }
-                  setTimeout(() => {
+                navigator.geolocation.getCurrentPosition(
+                  (pos: GeolocationPosition) => {
+                    setLocationStatus("Caught you!");
+                    if (map.current) {
+                      map.current.flyTo({
+                        center: [pos.coords.longitude, pos.coords.latitude],
+                        zoom: 16,
+                        essential: true
+                      });
+                    }
+                    setTimeout(() => {
+                      setIsLocating(false);
+                      setLocationStatus("");
+                    }, 1500);
+                  },
+                  (err: GeolocationPositionError) => {
+                    console.error("Geolocation error:", err);
                     setIsLocating(false);
                     setLocationStatus("");
-                  }, 1500);
-                };
+                    let message = "Could not get your location.";
+                    if (err.code === 1) message = "Location access denied. Please enable location permissions in your browser settings.";
+                    else if (err.code === 2) message = "Location information is unavailable. Please check your connection and try again.";
+                    else if (err.code === 3) message = "Location request timed out. Please try again.";
 
-                const error = (err: GeolocationPositionError) => {
-                  if (err.code === 2 || err.code === 3) {
-                    console.warn("High accuracy failed, retrying with low accuracy...");
-                    setLocationStatus("Searching with weak signal...");
-                    navigator.geolocation.getCurrentPosition(success, finalError, {
-                      ...options,
-                      enableHighAccuracy: false,
-                      timeout: 20000
-                    });
-                  } else {
-                    finalError(err);
-                  }
-                };
+                    if (!window.isSecureContext) {
+                      message += " Note: Geolocation requires a secure (HTTPS) connection.";
+                    }
 
-                const finalError = (err: GeolocationPositionError) => {
-                  console.error("Geolocation error:", err);
-                  setIsLocating(false);
-                  setLocationStatus("");
-                  let message = "Could not get your location.";
-                  if (err.code === 1) message = "Location access denied. Please enable location permissions in your browser settings.";
-                  else if (err.code === 2) message = "Location information is unavailable.";
-                  else if (err.code === 3) message = "Location request timed out. Please try again.";
-
-                  if (!window.isSecureContext) {
-                    message += " Note: Geolocation requires a secure (HTTPS) connection.";
-                  }
-
-                  alert(message);
-                };
-
-                navigator.geolocation.getCurrentPosition(success, error, options);
+                    alert(message);
+                  },
+                  options
+                );
               }}
               title="Find my location"
             >

@@ -184,8 +184,18 @@ export function startBackgroundTracking(
           `${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`
         );
       },
-      (error) => {
-        console.error("[Background GPS] Tracking error:", error);
+      (error: any) => {
+        let message = "[Background GPS] Tracking error";
+        if (error && typeof error === 'object' && 'code' in error) {
+          if (error.code === 1) {
+            message = "[Background GPS] Location access denied";
+          } else if (error.code === 2) {
+            message = "[Background GPS] Location information unavailable";
+          } else if (error.code === 3) {
+            message = "[Background GPS] Location request timed out";
+          }
+        }
+        console.error(message, error);
       },
       {
         enableHighAccuracy: true,
