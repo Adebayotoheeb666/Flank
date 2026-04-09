@@ -28,10 +28,29 @@ const markerStyles = `
     align-items: center;
     justify-content: center;
   }
+  .user-location-marker {
+    width: 32px;
+    height: 32px;
+    background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
+    border: 3px solid white;
+    border-radius: 50%;
+    box-shadow: 0 0 0 2px #3b82f6, 0 2px 8px rgba(0, 0, 0, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .user-location-marker::after {
+    content: '';
+    width: 6px;
+    height: 6px;
+    background: white;
+    border-radius: 50%;
+  }
 `;
 
 import { useOfflineSearch } from "@/hooks/use-offline-search";
 import { usePersistentNavigation } from "@/hooks/use-persistent-navigation";
+import { useBackgroundGPS } from "@/hooks/use-background-gps";
 
 // FUTA Central Coordinates
 const FUTA_CENTER: [number, number] = [5.1300, 7.3000];
@@ -53,6 +72,9 @@ export default function MapPage() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const markers = useRef<Record<string, maplibregl.Marker>>({});
+  const userLocationMarker = useRef<maplibregl.Marker | null>(null);
+  const watchIdRef = useRef<number | null>(null);
+  const proximityCleanupRef = useRef<(() => void) | null>(null);
 
   // Offline-capable hooks
   const { searchLocations, loading: locationsLoading } = useOfflineSearch();
@@ -64,6 +86,7 @@ export default function MapPage() {
     updateNavState,
     clearNavState
   } = usePersistentNavigation();
+  const { lastLocation: bgpsLastLocation, getTimeToLocation } = useBackgroundGPS();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
@@ -74,7 +97,9 @@ export default function MapPage() {
   const [mapStyle, setMapStyle] = useState<"streets-v2" | "satellite">("streets-v2");
   const [isLocating, setIsLocating] = useState(false);
   const [locationStatus, setLocationStatus] = useState("");
-  const [debugInfo, setDebugInfo] = useState<{ keyStatus: string; status?: string; error?: string; layers?: number; center?: string }>({ keyStatus: "awaiting" });
+  const [userPosition, setUserPosition] = useState<{ lat: number; lng: number } | null>(null);
+  const [distanceRemaining, setDistanceRemaining] = useState<number | null>(null);
+  const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
 
   const locations = useMemo(() => {
     return searchLocations(searchQuery, activeCategory);
@@ -89,11 +114,8 @@ export default function MapPage() {
 
     if (!apiKey) {
       console.warn("MapTiler API Key is missing. Map will not load.");
-      setDebugInfo({ keyStatus: "missing" });
       return;
     }
-
-    setDebugInfo({ keyStatus: "found: " + apiKey.substring(0, 4) + "..." });
 
     try {
       console.log("Initializing MapLibre at FUTA center:", FUTA_CENTER);
@@ -115,14 +137,7 @@ export default function MapPage() {
       resizeObserver.observe(mapContainer.current);
 
       map.current.on('load', () => {
-        const style = map.current?.getStyle();
-        console.log("Map load event fired. Layers count:", style?.layers?.length);
-        setDebugInfo(prev => ({
-          ...prev,
-          status: "loaded",
-          layers: style?.layers?.length,
-          center: JSON.stringify(map.current?.getCenter())
-        }));
+        console.log("Map loaded successfully");
       });
 
       // Handle missing images by adding placeholder icons
@@ -163,15 +178,11 @@ export default function MapPage() {
       });
 
       map.current.on('moveend', () => {
-        if (map.current) {
-          const center = map.current.getCenter();
-          setDebugInfo(prev => ({ ...prev, center: `${center.lng.toFixed(4)}, ${center.lat.toFixed(4)}` }));
-        }
+        // Map has moved
       });
 
       map.current.on('error', (e) => {
         console.error("MapLibre error:", e);
-        setDebugInfo(prev => ({ ...prev, error: String(e.error?.message || e.error || "Map error") }));
       });
 
       return () => {
@@ -184,7 +195,6 @@ export default function MapPage() {
       };
     } catch (error: any) {
       console.error("Failed to initialize map:", error);
-      setDebugInfo({ keyStatus: "error", error: error.message });
     }
   }, [mapStyle]);
 
@@ -256,6 +266,73 @@ export default function MapPage() {
       drawRoute(route);
     }
   }, [route, isNavigating]);
+
+  // Draw user location marker during navigation
+  useEffect(() => {
+    if (!map.current || !isNavigating || !userPosition) return;
+
+    // Remove old marker if exists
+    if (userLocationMarker.current) {
+      userLocationMarker.current.remove();
+    }
+
+    // Create new marker
+    const el = document.createElement('div');
+    el.className = 'user-location-marker';
+
+    userLocationMarker.current = new maplibregl.Marker({ element: el })
+      .setLngLat([userPosition.lng, userPosition.lat])
+      .addTo(map.current);
+
+    // Center map on user location while navigating
+    if (map.current) {
+      map.current.flyTo({
+        center: [userPosition.lng, userPosition.lat],
+        zoom: 17,
+        duration: 1000
+      });
+    }
+  }, [userPosition, isNavigating]);
+
+  // Set up proximity monitoring when route is loaded
+  useEffect(() => {
+    if (!isNavigating || !selectedLocation || !map.current) return;
+
+    // Clean up old proximity monitor
+    if (proximityCleanupRef.current) {
+      proximityCleanupRef.current();
+    }
+
+    // Monitor when user gets within 50 meters of destination
+    const proximityCheckInterval = setInterval(() => {
+      if (!userPosition || !selectedLocation) return;
+
+      const distance = calculateDistanceToDestination(
+        userPosition.lat,
+        userPosition.lng,
+        selectedLocation.coordinates.lat,
+        selectedLocation.coordinates.lng
+      );
+
+      // Auto-stop navigation when destination is reached (within 50 meters)
+      if (distance < 50) {
+        clearInterval(proximityCheckInterval);
+        setLocationStatus("You've arrived!");
+        stopNavigation();
+
+        // Show success notification
+        setTimeout(() => {
+          setLocationStatus("");
+        }, 3000);
+      }
+    }, 1000);
+
+    proximityCleanupRef.current = () => clearInterval(proximityCheckInterval);
+
+    return () => {
+      clearInterval(proximityCheckInterval);
+    };
+  }, [isNavigating, selectedLocation, userPosition]);
 
   const handleLocationClick = (loc: Location) => {
     updateNavState({
@@ -345,9 +422,9 @@ export default function MapPage() {
         }
 
         const options = {
-          enableHighAccuracy: false, // Use WiFi/cellular triangulation for speed
-          timeout: 8000, // 8 seconds should be plenty for most devices
-          maximumAge: 30000 // Allow 30 seconds old cached location
+          enableHighAccuracy: false,
+          timeout: 8000,
+          maximumAge: 30000
         };
 
         navigator.geolocation.getCurrentPosition(resolve, reject, options);
@@ -373,17 +450,19 @@ export default function MapPage() {
       }
 
       const data: RouteResponse = await response.json();
+      setUserPosition({ lat: userLat, lng: userLng });
       updateNavState({
         route: data,
         isNavigating: true
       });
 
       trackNavigation("current_location", selectedLocation.name, "map_click", data.total_distance);
+
+      // Start watching position during navigation
+      startWatchingPosition();
     } catch (error: any) {
-      // Properly extract error details
       let message = "Failed to start navigation.";
 
-      // Handle GeolocationPositionError
       if (error && typeof error === 'object' && 'code' in error) {
         console.error("Navigation geolocation error - Code:", error.code, "Message:", error.message);
 
@@ -415,7 +494,75 @@ export default function MapPage() {
     }
   };
 
+  // Watch user's position during navigation
+  const startWatchingPosition = () => {
+    if (watchIdRef.current) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+    }
+
+    const options = {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 5000
+    };
+
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      (position: GeolocationPosition) => {
+        const { latitude, longitude } = position.coords;
+        setUserPosition({ lat: latitude, lng: longitude });
+
+        // Update distance remaining
+        if (selectedLocation && route) {
+          const distance = calculateDistanceToDestination(latitude, longitude, selectedLocation.coordinates.lat, selectedLocation.coordinates.lng);
+          setDistanceRemaining(distance);
+
+          // Calculate approximate time remaining (assuming 1.4 m/s walking speed)
+          const timeMinutes = Math.ceil(distance / 1.4 / 60);
+          setTimeRemaining(timeMinutes);
+        }
+      },
+      (error) => {
+        console.error("Watch position error:", error);
+      },
+      options
+    );
+  };
+
+  // Calculate distance between two coordinates (Haversine formula)
+  const calculateDistanceToDestination = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 6371000; // Earth's radius in meters
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
   const stopNavigation = () => {
+    // Stop watching position
+    if (watchIdRef.current) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+
+    // Clean up proximity monitor
+    if (proximityCleanupRef.current) {
+      proximityCleanupRef.current();
+      proximityCleanupRef.current = null;
+    }
+
+    // Remove user location marker
+    if (userLocationMarker.current) {
+      userLocationMarker.current.remove();
+      userLocationMarker.current = null;
+    }
+
+    setUserPosition(null);
+    setDistanceRemaining(null);
+    setTimeRemaining(null);
+
     updateNavState({ isNavigating: false });
     if (map.current && map.current.getLayer('route')) {
       map.current.removeLayer('route');
@@ -631,7 +778,7 @@ export default function MapPage() {
                     <div className="flex items-center gap-4 bg-muted p-4 rounded-2xl border">
                       <div className="flex flex-col items-center">
                         <Clock className="h-5 w-5 text-muted-foreground" />
-                        <span className="text-[10px] font-bold">{Math.round(route.total_distance / 80)} min</span>
+                        <span className="text-[10px] font-bold">{timeRemaining || Math.round(route.total_distance / 80)} min</span>
                       </div>
                       <div className="h-8 w-px bg-border" />
                       <div className="flex flex-col items-center">
@@ -640,7 +787,7 @@ export default function MapPage() {
                       </div>
                       <div className="h-8 w-px bg-border" />
                       <div className="flex-1 text-sm font-medium">
-                        {route.total_distance}m • Optimized Path
+                        {distanceRemaining ? `${Math.round(distanceRemaining)}m` : `${route.total_distance}m`} • Live
                       </div>
                     </div>
 
