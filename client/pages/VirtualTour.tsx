@@ -7,12 +7,13 @@ import { useAnalytics } from "@/hooks/use-analytics";
 import { useUserId } from "@/hooks/use-auth";
 import {
   ChevronLeft, ChevronRight, MapPin, Users, BookOpen, Clock,
-  Star, Building2, ArrowLeft, Info, Play, X, RotateCw, Loader, Rotate3D, Edit2
+  Star, Building2, ArrowLeft, Info, Play, X, RotateCw, Loader, Rotate3D, Edit2, Plus, Trash2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link, useNavigate } from "react-router-dom";
 import PanoramaViewer from "@/components/PanoramaViewer";
 import EditBuildingModal from "@/components/EditBuildingModal";
+import CreateTourModal from "@/components/CreateTourModal";
 
 interface Building {
   id: string;
@@ -32,6 +33,9 @@ interface Building {
   panorama_url?: string;
   view_count: number;
   visitors_count?: number;
+  creator_id?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export default function VirtualTourPage() {
@@ -44,6 +48,8 @@ export default function VirtualTourPage() {
   const [show360, setShow360] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [currentMapCenter, setCurrentMapCenter] = useState<{ lat: number; lng: number } | undefined>();
 
   // Fetch buildings from API
   useEffect(() => {
@@ -131,6 +137,68 @@ export default function VirtualTourPage() {
     }
   };
 
+  const handleCreateBuilding = async (newBuilding: Omit<Building, "id" | "view_count">) => {
+    try {
+      const response = await fetch("/api/virtual-tour/buildings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...newBuilding,
+          creator_id: userId
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to create tour");
+      }
+
+      const data = await response.json();
+
+      // Add to local state
+      setBuildings([...buildings, { ...data, view_count: 0 }]);
+      setSelectedBuilding({ ...data, view_count: 0 });
+
+      alert("Tour created successfully!");
+    } catch (error) {
+      console.error("Error creating tour:", error);
+      throw error;
+    }
+  };
+
+  const handleDeleteBuilding = async (buildingId: string) => {
+    if (!window.confirm("Are you sure you want to delete this tour? This action cannot be undone.")) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/virtual-tour/buildings/${buildingId}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: userId })
+      });
+
+      if (!response.ok) {
+        if (response.status === 403) {
+          throw new Error("You don't have permission to delete this tour");
+        }
+        throw new Error("Failed to delete tour");
+      }
+
+      // Remove from local state
+      setBuildings(buildings.filter(b => b.id !== buildingId));
+      if (selectedBuilding?.id === buildingId) {
+        setSelectedBuilding(buildings.find(b => b.id !== buildingId) || null);
+      }
+
+      alert("Tour deleted successfully!");
+    } catch (error) {
+      console.error("Error deleting tour:", error);
+      alert(error instanceof Error ? error.message : "Failed to delete tour");
+    }
+  };
+
+  const isCreator = (building: Building) => building.creator_id === userId;
+
   const categoryColors: Record<string, string> = {
     school: "bg-blue-100 text-blue-700",
     admin: "bg-purple-100 text-purple-700",
@@ -144,10 +212,21 @@ export default function VirtualTourPage() {
         {/* Header */}
         <div className="bg-blue-900 text-white py-12">
           <div className="container px-4">
-            <h1 className="text-4xl font-extrabold mb-4">Virtual Campus Tour</h1>
-            <p className="text-blue-100 text-lg max-w-2xl">
-              Immerse yourself in FUTA's campus with high-resolution photos and interactive 360° views.
-            </p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-4xl font-extrabold mb-4">Virtual Campus Tour</h1>
+                <p className="text-blue-100 text-lg max-w-2xl">
+                  Immerse yourself in FUTA's campus with high-resolution photos and interactive 360° views.
+                </p>
+              </div>
+              <Button
+                onClick={() => setIsCreateModalOpen(true)}
+                className="gap-2 bg-white text-blue-900 hover:bg-blue-50 font-bold h-12 rounded-lg"
+              >
+                <Plus className="h-5 w-5" />
+                Create Tour Location
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -165,33 +244,58 @@ export default function VirtualTourPage() {
             <div className="grid lg:grid-cols-3 gap-8">
               {/* Media Viewer Area */}
               <div className="lg:col-span-2 space-y-4">
-                <div className="flex items-center justify-between bg-white p-4 rounded-2xl border shadow-sm">
-                  <div className="flex items-center gap-3">
-                    <Badge className={categoryColors[selectedBuilding.category] || "bg-slate-100 text-slate-700"}>
-                      {selectedBuilding.category}
-                    </Badge>
-                    <h2 className="text-2xl font-bold">{selectedBuilding.name}</h2>
+                <div className="bg-white p-4 rounded-2xl border shadow-sm space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Badge className={categoryColors[selectedBuilding.category] || "bg-slate-100 text-slate-700"}>
+                        {selectedBuilding.category}
+                      </Badge>
+                      <h2 className="text-2xl font-bold">{selectedBuilding.name}</h2>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {isCreator(selectedBuilding) && (
+                        <>
+                          <Button
+                            variant="outline"
+                            onClick={() => setIsEditModalOpen(true)}
+                            className="gap-2 font-bold"
+                            size="sm"
+                          >
+                            <Edit2 className="h-4 w-4" />
+                            Edit
+                          </Button>
+                          <Button
+                            variant="outline"
+                            onClick={() => handleDeleteBuilding(selectedBuilding.id)}
+                            className="gap-2 font-bold text-red-600 hover:text-red-700"
+                            size="sm"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            Delete
+                          </Button>
+                        </>
+                      )}
+                      {selectedBuilding.panorama_url && (
+                        <Button
+                          variant={show360 ? "default" : "outline"}
+                          onClick={() => setShow360(!show360)}
+                          className="gap-2 font-bold"
+                          size="sm"
+                        >
+                          <Rotate3D className="h-4 w-4" />
+                          {show360 ? "Photos" : "360°"}
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => setIsEditModalOpen(true)}
-                      className="gap-2 font-bold"
-                    >
-                      <Edit2 className="h-4 w-4" />
-                      Edit
-                    </Button>
-                    {selectedBuilding.panorama_url && (
-                      <Button
-                        variant={show360 ? "default" : "outline"}
-                        onClick={() => setShow360(!show360)}
-                        className="gap-2 font-bold"
-                      >
-                        <Rotate3D className="h-4 w-4" />
-                        {show360 ? "Photos" : "360° View"}
-                      </Button>
-                    )}
-                  </div>
+                  {selectedBuilding.creator_id && (
+                    <div className="text-xs text-muted-foreground border-t pt-2">
+                      Created by: {selectedBuilding.creator_id === userId ? "You" : "Community"}
+                      {selectedBuilding.created_at && (
+                        <> • {new Date(selectedBuilding.created_at).toLocaleDateString()}</>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div className="relative aspect-video rounded-3xl overflow-hidden bg-black shadow-2xl group">
@@ -365,8 +469,16 @@ export default function VirtualTourPage() {
             open={isEditModalOpen}
             onOpenChange={setIsEditModalOpen}
             onSave={handleSaveBuilding}
+            canEdit={isCreator(selectedBuilding)}
           />
         )}
+
+        <CreateTourModal
+          open={isCreateModalOpen}
+          onOpenChange={setIsCreateModalOpen}
+          onCreate={handleCreateBuilding}
+          userLocation={currentMapCenter}
+        />
       </div>
     </Layout>
   );

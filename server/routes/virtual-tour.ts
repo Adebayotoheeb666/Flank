@@ -17,6 +17,9 @@ export interface VirtualTourBuilding {
   student_capacity?: number;
   year_built?: number;
   coordinates: { lat: number; lng: number };
+  creator_id?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 /**
@@ -84,14 +87,19 @@ export const handleGetTourBuilding: RequestHandler = async (req, res) => {
 
 /**
  * POST /api/virtual-tour/buildings
- * Admin endpoint to create a new building tour
+ * Create a new building tour (user-generated)
  */
 export const handleCreateTourBuilding: RequestHandler = async (req, res) => {
   try {
     const building: Omit<VirtualTourBuilding, "id"> = req.body;
+    const creatorId = req.body.creator_id;
 
     if (!building.name || !building.category) {
       return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    if (!creatorId) {
+      return res.status(400).json({ error: "User ID is required" });
     }
 
     const { data, error } = await supabase
@@ -110,7 +118,10 @@ export const handleCreateTourBuilding: RequestHandler = async (req, res) => {
           facilities: building.facilities,
           student_capacity: building.student_capacity,
           year_built: building.year_built,
-          coordinates: building.coordinates
+          coordinates: building.coordinates,
+          creator_id: creatorId,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         }
       ])
       .select()
@@ -187,6 +198,58 @@ export const handleUpdateTourBuilding: RequestHandler = async (req, res) => {
   } catch (error) {
     console.error("Update building error:", error);
     res.status(500).json({ error: "Failed to update building tour" });
+  }
+};
+
+/**
+ * DELETE /api/virtual-tour/buildings/:buildingId
+ * Delete a building tour (only creator can delete)
+ */
+export const handleDeleteTourBuilding: RequestHandler = async (req, res) => {
+  try {
+    const { buildingId } = req.params;
+    const userId = req.body.user_id;
+
+    if (!buildingId || !userId) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    // Get the building to check creator
+    const { data: building, error: getError } = await supabase
+      .from("virtual_tour_buildings")
+      .select("creator_id")
+      .eq("id", buildingId)
+      .single();
+
+    if (getError && getError.code === "PGRST116") {
+      return res.status(404).json({ error: "Building not found" });
+    }
+
+    if (getError) {
+      console.error("Supabase Error:", getError);
+      return res.status(500).json({ error: "Failed to delete building tour" });
+    }
+
+    // Check if user is the creator
+    if (building?.creator_id !== userId) {
+      return res.status(403).json({ error: "You don't have permission to delete this tour" });
+    }
+
+    // Delete the building
+    const { error: deleteError } = await supabase
+      .from("virtual_tour_buildings")
+      .delete()
+      .eq("id", buildingId);
+
+    if (deleteError) {
+      console.error("Supabase Error:", deleteError);
+      return res.status(500).json({ error: "Failed to delete building tour" });
+    }
+
+    res.json({ success: true, message: "Building tour deleted successfully" });
+  } catch (error) {
+    console.error("Delete building error:", error);
+    res.status(500).json({ error: "Failed to delete building tour" });
   }
 };
 
