@@ -19,6 +19,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { useUserId } from "@/hooks/use-auth";
 import { MapPin, Loader2 } from "lucide-react";
 
 interface AddPlaceModalProps {
@@ -35,6 +36,7 @@ export default function AddPlaceModal({
     onSuccess,
 }: AddPlaceModalProps) {
     const { toast } = useToast();
+    const userId = useUserId();
     const [submitting, setSubmitting] = useState(false);
     const [formData, setFormData] = useState({
         name: "",
@@ -64,6 +66,7 @@ export default function AddPlaceModal({
                 body: JSON.stringify({
                     ...formData,
                     coordinates: currentLocation,
+                    creator_id: userId,
                 }),
             });
 

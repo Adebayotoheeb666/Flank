@@ -4,10 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { useAnalytics } from "@/hooks/use-analytics";
+import { useUserId } from "@/hooks/use-auth";
 import {
   Volume2, MapPin, Compass, ChevronRight, ChevronLeft,
   TreeDeciduous, Building2, AlertCircle, Phone, X,
-  Play, Pause, SkipForward, SkipBack, Home, Loader
+  Play, Pause, SkipForward, SkipBack, Home, Loader,
+  Edit2, Trash2
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -19,11 +21,16 @@ interface GuidanceStep {
   action: string;
   distance: string;
   tips: string[];
+  creator_id?: string;
+  created_at?: string;
+  updated_at?: string;
+  step_order?: number;
 }
 
 export default function FreshersPage() {
   // Track page analytics
   useAnalytics("freshers");
+  const userId = useUserId();
 
   const [currentStep, setCurrentStep] = useState(0);
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
@@ -31,6 +38,7 @@ export default function FreshersPage() {
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
   const [guidanceSequence, setGuidanceSequence] = useState<GuidanceStep[]>([]);
   const [loadingGuidance, setLoadingGuidance] = useState(true);
+  const [isDeletingStep, setIsDeletingStep] = useState(false);
   const synth = useRef<SpeechSynthesis | null>(null);
 
   // Initialize speech synthesis
@@ -93,6 +101,43 @@ export default function FreshersPage() {
     playVoiceGuidance(fullText);
   };
 
+  const handleDeleteStep = async (stepId: number) => {
+    if (!confirm("Are you sure you want to delete this guidance step?")) return;
+
+    try {
+      setIsDeletingStep(true);
+      const response = await fetch(`/api/guidance/${stepId}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          user_id: userId,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to delete guidance step");
+      }
+
+      // Refresh guidance sequence
+      const freshResponse = await fetch("/api/guidance");
+      if (freshResponse.ok) {
+        const data = await freshResponse.json();
+        setGuidanceSequence(data);
+        // Reset to first step or adjust if current step was deleted
+        if (currentStep >= data.length) {
+          setCurrentStep(Math.max(0, data.length - 1));
+        }
+      }
+    } catch (error) {
+      console.error("Error deleting step:", error);
+      alert("Failed to delete step. Please try again.");
+    } finally {
+      setIsDeletingStep(false);
+    }
+  };
+
   const step = guidanceSequence[currentStep];
   const progress = guidanceSequence.length > 0 ? ((currentStep + 1) / guidanceSequence.length) * 100 : 0;
 
@@ -153,11 +198,35 @@ export default function FreshersPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Badge variant={completedSteps.includes(currentStep) ? "secondary" : "default"}>
-                    Step {currentStep + 1}
-                  </Badge>
-                  <h2 className="text-3xl font-bold">{step.instruction}</h2>
-                  <p className="text-muted-foreground text-lg">{step.action}</p>
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-2 flex-1">
+                      <Badge variant={completedSteps.includes(currentStep) ? "secondary" : "default"}>
+                        Step {currentStep + 1}
+                      </Badge>
+                      <h2 className="text-3xl font-bold">{step.instruction}</h2>
+                      <p className="text-muted-foreground text-lg">{step.action}</p>
+                    </div>
+                    {step.creator_id === userId && (
+                      <div className="flex gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-primary"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                          onClick={() => handleDeleteStep(step.id)}
+                          disabled={isDeletingStep}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div className="bg-muted p-4 rounded-xl">

@@ -4,6 +4,7 @@ import Layout from "@/components/Layout";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useAnalytics, trackSearch, trackNavigation } from "@/hooks/use-analytics";
+import { useUserId } from "@/hooks/use-auth";
 import {
   Search, MapPin, Navigation, Compass, Phone,
   Info, Filter, Layers, ZoomIn, ZoomOut,
@@ -67,6 +68,7 @@ export default function MapPage() {
   // Track page analytics
   useAnalytics("map");
   const location = useLocation();
+  const userId = useUserId();
 
   const mapContainer = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -100,6 +102,39 @@ export default function MapPage() {
   const [userPosition, setUserPosition] = useState<{ lat: number; lng: number } | null>(null);
   const [distanceRemaining, setDistanceRemaining] = useState<number | null>(null);
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
+  const [isEditingLocation, setIsEditingLocation] = useState(false);
+  const [isDeletingLocation, setIsDeletingLocation] = useState(false);
+
+  const handleDeleteLocation = async () => {
+    if (!selectedLocation) return;
+
+    try {
+      setIsDeletingLocation(true);
+      const response = await fetch(`/api/locations/${selectedLocation.id}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          user_id: userId,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to delete location");
+      }
+
+      // Clear selection and refresh locations
+      clearNavState();
+      // Force a location reload by triggering search update
+      setSearchQuery("");
+    } catch (error) {
+      console.error("Error deleting location:", error);
+      alert("Failed to delete location. Please try again.");
+    } finally {
+      setIsDeletingLocation(false);
+    }
+  };
 
   const locations = useMemo(() => {
     return searchLocations(searchQuery, activeCategory);
@@ -881,10 +916,37 @@ export default function MapPage() {
                           )}
                           {isLocating ? "Calculating..." : "Get Directions"}
                         </Button>
-                        <Button variant="outline" size="icon" className="h-12 w-12 rounded-xl">
-                          <MoreVertical className="h-5 w-5" />
-                        </Button>
+                        {selectedLocation?.creator_id === userId && (
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-12 w-12 rounded-xl"
+                            onClick={() => setIsEditingLocation(true)}
+                          >
+                            <MoreVertical className="h-5 w-5" />
+                          </Button>
+                        )}
                       </div>
+
+                      {selectedLocation?.creator_id === userId && (
+                        <div className="flex gap-2 pt-2 border-t">
+                          <Button
+                            variant="outline"
+                            className="flex-1 rounded-xl"
+                            disabled={isDeletingLocation}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            className="flex-1 rounded-xl"
+                            onClick={handleDeleteLocation}
+                            disabled={isDeletingLocation}
+                          >
+                            {isDeletingLocation ? "Deleting..." : "Delete"}
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
