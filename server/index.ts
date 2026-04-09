@@ -2,7 +2,7 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import { handleDemo } from "./routes/demo";
-import { handleGetLocations, handlePostLocation, handleSearchLocations } from "./routes/locations";
+import { handleGetLocations, handlePostLocation, handleSearchLocations, handleUpdateLocation, handleDeleteLocation } from "./routes/locations";
 import { handleRouteRequest } from "./routes/navigation";
 import {
   getTimetable,
@@ -35,7 +35,7 @@ import {
   getAnalyticsDashboard,
   getRawAnalytics
 } from "./routes/analytics";
-import { getGuidance } from "./routes/guidance";
+import { getGuidance, updateGuidanceStep, deleteGuidanceStep } from "./routes/guidance";
 import {
   handleGetShortcuts,
   handleReportShortcut,
@@ -80,6 +80,8 @@ export function createServer() {
   app.get("/api/locations", handleGetLocations);
   app.get("/api/search", handleSearchLocations);
   app.post("/api/locations", handlePostLocation);
+  app.patch("/api/locations/:locationId", handleUpdateLocation);
+  app.delete("/api/locations/:locationId", handleDeleteLocation);
   app.post("/api/route", handleRouteRequest);
 
   // Phase 3: Timetable Integration Routes
@@ -115,6 +117,8 @@ export function createServer() {
 
   // Phase 3: Guidance Routes (Freshers Mode)
   app.get("/api/guidance", getGuidance);
+  app.patch("/api/guidance/:stepId", updateGuidanceStep);
+  app.delete("/api/guidance/:stepId", deleteGuidanceStep);
 
   // Phase 2: Shortcut Detection Routes
   app.get("/api/shortcuts", handleGetShortcuts);
