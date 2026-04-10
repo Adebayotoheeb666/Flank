@@ -13,6 +13,7 @@ import {
   ArrowRight, AlertTriangle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { logGeolocationError, getCachedPosition, cachePosition } from "@/lib/geolocation-utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Location } from "@shared/api";
@@ -445,8 +446,148 @@ export default function MapPage() {
     map.current.fitBounds(bounds, { padding: 50 });
   };
 
+  // Preview the route without starting full navigation
+  const previewRoute = async (retryCount = 0) => {
+    if (!selectedLocation) return;
+    setIsLocating(true);
+    setLocationStatus("Calculating route...");
+    try {
+      // Try to get position with generous timeout
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        if (!navigator.geolocation) {
+          reject(new Error("Geolocation is not supported by your browser."));
+          return;
+        }
+
+        const options = {
+          enableHighAccuracy: false,
+          timeout: 45000, // 45 seconds for one-time position request
+          maximumAge: 5 * 60 * 1000 // Allow cached positions up to 5 minutes old
+        };
+
+        navigator.geolocation.getCurrentPosition(resolve, reject, options);
+      });
+
+      const userLat = position.coords.latitude;
+      const userLng = position.coords.longitude;
+
+      // Cache the position for future use
+      cachePosition(position.coords);
+
+      const response = await fetch("/api/route", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          start_lat: userLat,
+          start_lng: userLng,
+          end_location_id: selectedLocation.id,
+          prefer_flat: preferFlat
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to calculate route");
+      }
+
+      const data: RouteResponse = await response.json();
+      setUserPosition({ lat: userLat, lng: userLng });
+
+      // Store route without starting full navigation
+      updateNavState({
+        route: data,
+        isNavigating: false
+      });
+
+      // Draw the route on the map
+      drawRoute(data);
+      setLocationStatus("Route ready!");
+
+      setTimeout(() => {
+        setLocationStatus("");
+      }, 1500);
+    } catch (error: any) {
+      let message = "Failed to calculate route.";
+
+      // If timeout and we have a cached position, use it for retry
+      if (error?.code === 3 && retryCount < 1) {
+        const cachedPos = getCachedPosition();
+        if (cachedPos) {
+          console.log("[Map] Timeout on route preview, using cached position");
+          setLocationStatus("Using cached location...");
+
+          const userLat = cachedPos.latitude;
+          const userLng = cachedPos.longitude;
+
+          try {
+            const response = await fetch("/api/route", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                start_lat: userLat,
+                start_lng: userLng,
+                end_location_id: selectedLocation.id,
+                prefer_flat: preferFlat
+              })
+            });
+
+            if (!response.ok) {
+              throw new Error("Failed to calculate route");
+            }
+
+            const data: RouteResponse = await response.json();
+            setUserPosition({ lat: userLat, lng: userLng });
+            updateNavState({
+              route: data,
+              isNavigating: false
+            });
+            drawRoute(data);
+            setLocationStatus("Route ready (from cached location)!");
+            setTimeout(() => {
+              setLocationStatus("");
+            }, 2000);
+            setIsLocating(false);
+            return;
+          } catch (retryError) {
+            console.error("[Map] Retry with cached position failed:", retryError);
+            // Fall through to error handling
+          }
+        }
+      }
+
+      if (error && typeof error === 'object' && 'code' in error) {
+        logGeolocationError("[Map] Route preview", error);
+
+        if (error.code === 1) {
+          message = "Location access denied. Please enable location permissions.";
+        } else if (error.code === 2) {
+          message = "Location information unavailable. Check your connection.";
+        } else if (error.code === 3) {
+          message = "Location request timed out. Check your location service and try again.";
+        } else {
+          message = error.message || "Unable to calculate route.";
+        }
+      } else if (error instanceof Error) {
+        message = error.message;
+      }
+
+      setLocationStatus(`Error: ${message}`);
+    } finally {
+      setIsLocating(false);
+    }
+  };
+
   const startNavigation = async () => {
     if (!selectedLocation) return;
+
+    // If route is already previewed, just start navigation
+    if (route) {
+      updateNavState({ isNavigating: true });
+      startWatchingPosition();
+      setLocationStatus("");
+      return;
+    }
+
+    // Otherwise, calculate and start navigation
     setIsLocating(true);
     setLocationStatus("Connecting to GPS...");
     try {
@@ -458,8 +599,8 @@ export default function MapPage() {
 
         const options = {
           enableHighAccuracy: false,
-          timeout: 8000,
-          maximumAge: 30000
+          timeout: 45000, // 45 seconds for one-time position request
+          maximumAge: 5 * 60 * 1000 // Allow cached positions up to 5 minutes old
         };
 
         navigator.geolocation.getCurrentPosition(resolve, reject, options);
@@ -468,6 +609,9 @@ export default function MapPage() {
 
       const userLat = position.coords.latitude;
       const userLng = position.coords.longitude;
+
+      // Cache the position for future use
+      cachePosition(position.coords);
 
       const response = await fetch("/api/route", {
         method: "POST",
@@ -499,7 +643,7 @@ export default function MapPage() {
       let message = "Failed to start navigation.";
 
       if (error && typeof error === 'object' && 'code' in error) {
-        console.error("Navigation geolocation error - Code:", error.code, "Message:", error.message);
+        logGeolocationError("[Map] Navigation start", error);
 
         if (error.code === 1) {
           message = "Location access denied. Please enable location permissions in settings.";
@@ -535,16 +679,22 @@ export default function MapPage() {
       navigator.geolocation.clearWatch(watchIdRef.current);
     }
 
+    // Use more lenient timeout for continuous watchPosition tracking
+    // TIMEOUT errors are common with strict timeouts, so we increase it for better reliability
     const options = {
       enableHighAccuracy: true,
-      timeout: 10000,
-      maximumAge: 5000
+      timeout: 30000, // 30 seconds (up from 10s) for continuous tracking to reduce timeout errors
+      maximumAge: 5000 // Still prefer fresh location data
     };
+
+    let consecutiveErrors = 0;
+    const MAX_CONSECUTIVE_ERRORS = 5;
 
     watchIdRef.current = navigator.geolocation.watchPosition(
       (position: GeolocationPosition) => {
         const { latitude, longitude } = position.coords;
         setUserPosition({ lat: latitude, lng: longitude });
+        consecutiveErrors = 0; // Reset error counter on successful location
 
         // Update distance remaining
         if (selectedLocation && route) {
@@ -557,7 +707,20 @@ export default function MapPage() {
         }
       },
       (error) => {
-        console.error("Watch position error:", error);
+        consecutiveErrors++;
+        logGeolocationError("[Map] Navigation tracking", error);
+
+        // Stop watching if we get too many consecutive errors
+        if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+          console.warn(
+            `[Map] Location tracking stopped after ${MAX_CONSECUTIVE_ERRORS} consecutive errors. ` +
+            "Please check your location settings and try again."
+          );
+          if (watchIdRef.current !== null) {
+            navigator.geolocation.clearWatch(watchIdRef.current);
+            watchIdRef.current = null;
+          }
+        }
       },
       options
     );
@@ -652,31 +815,52 @@ export default function MapPage() {
             <ScrollArea className="flex-1">
               <div className="p-2 space-y-1">
                 {locations.map(loc => (
-                  <button
+                  <div
                     key={loc.id}
                     className={cn(
-                      "w-full flex items-start gap-4 p-4 rounded-xl text-left transition-all hover:bg-muted group",
+                      "flex items-start gap-2 p-2 rounded-xl transition-all group",
                       selectedLocation?.id === loc.id && "bg-primary/5 border border-primary/20 ring-1 ring-primary/10"
                     )}
-                    onClick={() => handleLocationClick(loc)}
                   >
-                    <div className={cn(
-                      "p-2 rounded-lg text-primary-foreground",
-                      selectedLocation?.id === loc.id ? "bg-primary" : "bg-muted-foreground/20 group-hover:bg-primary/50"
-                    )}>
-                      {loc.category === 'school' && <GraduationCap className="h-5 w-5" />}
-                      {loc.category === 'admin' && <Building2 className="h-5 w-5" />}
-                      {loc.category === 'food' && <Utensils className="h-5 w-5" />}
-                      {loc.category === 'bank' && <CreditCard className="h-5 w-5" />}
-                      {loc.category === 'health' && <Activity className="h-5 w-5" />}
-                      {loc.category === 'landmark' && <TreeDeciduous className="h-5 w-5" />}
-                      {loc.category === 'study' && <Compass className="h-5 w-5" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-bold truncate">{loc.name}</p>
-                      <p className="text-xs text-muted-foreground truncate">{loc.type} • {loc.description}</p>
-                    </div>
-                  </button>
+                    <button
+                      className={cn(
+                        "flex-1 flex items-start gap-4 p-2 rounded-lg text-left transition-all hover:bg-muted"
+                      )}
+                      onClick={() => handleLocationClick(loc)}
+                    >
+                      <div className={cn(
+                        "p-2 rounded-lg text-primary-foreground shrink-0",
+                        selectedLocation?.id === loc.id ? "bg-primary" : "bg-muted-foreground/20 group-hover:bg-primary/50"
+                      )}>
+                        {loc.category === 'school' && <GraduationCap className="h-5 w-5" />}
+                        {loc.category === 'admin' && <Building2 className="h-5 w-5" />}
+                        {loc.category === 'food' && <Utensils className="h-5 w-5" />}
+                        {loc.category === 'bank' && <CreditCard className="h-5 w-5" />}
+                        {loc.category === 'health' && <Activity className="h-5 w-5" />}
+                        {loc.category === 'landmark' && <TreeDeciduous className="h-5 w-5" />}
+                        {loc.category === 'study' && <Compass className="h-5 w-5" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold truncate text-sm">{loc.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">{loc.type} • {loc.description}</p>
+                      </div>
+                    </button>
+                    {/* Quick Navigate Button */}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity h-10 w-10 p-0 rounded-lg hover:bg-primary/10 hover:text-primary"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleLocationClick(loc);
+                        // Give a small delay so UI updates, then start navigation
+                        setTimeout(() => startNavigation(), 100);
+                      }}
+                      title="Navigate to this location"
+                    >
+                      <ArrowRight className="h-5 w-5" />
+                    </Button>
+                  </div>
                 ))}
               </div>
             </ScrollArea>
@@ -715,9 +899,9 @@ export default function MapPage() {
                 setIsLocating(true);
                 setLocationStatus("Finding your location...");
                 const options = {
-                  enableHighAccuracy: false, // Use WiFi/cellular triangulation for speed
-                  timeout: 8000, // 8 seconds should be plenty for most devices
-                  maximumAge: 30000 // Allow 30 seconds old cached location
+                  enableHighAccuracy: false,
+                  timeout: 45000, // 45 seconds - generous timeout for better reliability
+                  maximumAge: 5 * 60 * 1000 // Allow cached positions up to 5 minutes old
                 };
 
                 navigator.geolocation.getCurrentPosition(
@@ -736,7 +920,7 @@ export default function MapPage() {
                     }, 1500);
                   },
                   (err: GeolocationPositionError) => {
-                    console.error("Geolocation error:", err);
+                    logGeolocationError("[Map] Location center button", err);
                     setIsLocating(false);
                     setLocationStatus("");
                     let message = "Could not get your location.";
@@ -906,7 +1090,7 @@ export default function MapPage() {
                       <div className="flex gap-3">
                         <Button
                           className="flex-1 h-12 rounded-xl font-bold gap-2"
-                          onClick={startNavigation}
+                          onClick={route ? startNavigation : previewRoute}
                           disabled={isLocating}
                         >
                           {isLocating ? (
@@ -914,7 +1098,7 @@ export default function MapPage() {
                           ) : (
                             <Navigation className="h-5 w-5" />
                           )}
-                          {isLocating ? "Calculating..." : "Get Directions"}
+                          {isLocating ? "Calculating..." : route ? "Start Navigation" : "Get Directions"}
                         </Button>
                         {selectedLocation?.creator_id === userId && (
                           <Button

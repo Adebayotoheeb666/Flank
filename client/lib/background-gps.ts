@@ -4,6 +4,8 @@
  * Stores location history in IndexedDB for offline access
  */
 
+import { logGeolocationError, cachePosition, getCachedPosition } from './geolocation-utils';
+
 interface StoredLocation {
   id: string;
   latitude: number;
@@ -165,11 +167,14 @@ export function startBackgroundTracking(
 
     backgroundTrackingEnabled = true;
 
+    let errorCount = 0;
+
     // High accuracy watch position
     watcherId = navigator.geolocation.watchPosition(
       async (position) => {
         const { coords, timestamp } = position;
         lastLocation = coords;
+        errorCount = 0; // Reset error count on successful location
 
         // Save to IndexedDB for offline access
         await saveLocation(coords, timestamp);
@@ -185,21 +190,17 @@ export function startBackgroundTracking(
         );
       },
       (error: any) => {
-        let message = "[Background GPS] Tracking error";
-        if (error && typeof error === 'object' && 'code' in error) {
-          if (error.code === 1) {
-            message = "[Background GPS] Location access denied";
-          } else if (error.code === 2) {
-            message = "[Background GPS] Location information unavailable";
-          } else if (error.code === 3) {
-            message = "[Background GPS] Location request timed out";
-          }
+        errorCount++;
+        logGeolocationError("[Background GPS] Tracking", error);
+
+        // Log recovery action if timeout errors are common
+        if (error?.code === 3) {
+          console.warn("[Background GPS] Location timeout - retrying with relaxed settings");
         }
-        console.error(message, error);
       },
       {
         enableHighAccuracy: true,
-        timeout: LOCATION_TIMEOUT,
+        timeout: LOCATION_TIMEOUT, // 60 seconds for background tracking
         maximumAge: 10000 // Cache for 10 seconds
       }
     );
