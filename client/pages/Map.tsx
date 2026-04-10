@@ -22,6 +22,7 @@ import ReportErrorModal from "@/components/ReportErrorModal";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import AddPlaceModal from "@/components/AddPlaceModal";
+import EditPlaceModal from "@/components/EditPlaceModal";
 
 // Add marker styles
 const markerStyles = `
@@ -1106,6 +1107,7 @@ export default function MapPage() {
                             size="icon"
                             className="h-12 w-12 rounded-xl"
                             onClick={() => setIsEditingLocation(true)}
+                            title="Edit this place"
                           >
                             <MoreVertical className="h-5 w-5" />
                           </Button>
@@ -1171,6 +1173,17 @@ export default function MapPage() {
         onOpenChange={setAddPlaceOpen}
         currentLocation={currentMapCenter}
         onSuccess={() => {/* Implicitly handled by offline search interval or manual refresh if added */ }}
+      />
+
+      <EditPlaceModal
+        open={isEditingLocation}
+        onOpenChange={setIsEditingLocation}
+        location={selectedLocation}
+        onSuccess={() => {
+          setIsEditingLocation(false);
+          // Refresh the location data by clearing and re-searching
+          clearNavState();
+        }}
       />
     </Layout>
   );

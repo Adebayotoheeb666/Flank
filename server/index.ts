@@ -35,7 +35,7 @@ import {
   getAnalyticsDashboard,
   getRawAnalytics
 } from "./routes/analytics";
-import { getGuidance, updateGuidanceStep, deleteGuidanceStep } from "./routes/guidance";
+import { getGuidance, createGuidanceStep, updateGuidanceStep, deleteGuidanceStep } from "./routes/guidance";
 import {
   handleGetShortcuts,
   handleReportShortcut,
@@ -117,6 +117,7 @@ export function createServer() {
 
   // Phase 3: Guidance Routes (Freshers Mode)
   app.get("/api/guidance", getGuidance);
+  app.post("/api/guidance", createGuidanceStep);
   app.patch("/api/guidance/:stepId", updateGuidanceStep);
   app.delete("/api/guidance/:stepId", deleteGuidanceStep);
 
