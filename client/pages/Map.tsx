@@ -13,6 +13,7 @@ import {
   ArrowRight, AlertTriangle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { logGeolocationError } from "@/lib/geolocation-utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Location } from "@shared/api";
@@ -499,7 +500,7 @@ export default function MapPage() {
       let message = "Failed to start navigation.";
 
       if (error && typeof error === 'object' && 'code' in error) {
-        console.error("Navigation geolocation error - Code:", error.code, "Message:", error.message);
+        logGeolocationError("[Map] Navigation start", error);
 
         if (error.code === 1) {
           message = "Location access denied. Please enable location permissions in settings.";
@@ -557,7 +558,7 @@ export default function MapPage() {
         }
       },
       (error) => {
-        console.error("Watch position error:", error);
+        logGeolocationError("[Map] Navigation tracking", error);
       },
       options
     );
@@ -736,7 +737,7 @@ export default function MapPage() {
                     }, 1500);
                   },
                   (err: GeolocationPositionError) => {
-                    console.error("Geolocation error:", err);
+                    logGeolocationError("[Map] Location center button", err);
                     setIsLocating(false);
                     setLocationStatus("");
                     let message = "Could not get your location.";

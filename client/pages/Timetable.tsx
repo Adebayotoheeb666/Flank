@@ -11,6 +11,7 @@ import {
   CheckCircle, AlertTriangle, Navigation, Settings, X, Loader
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { logGeolocationError, getGeolocationErrorMessage } from "@/lib/geolocation-utils";
 import { Course, RouteReminderResponse } from "@shared/api";
 
 interface RouteReminder {
@@ -71,15 +72,8 @@ export default function TimetablePage() {
         }
 
         navigator.geolocation.getCurrentPosition(resolve, (err) => {
-          // Extract error details from GeolocationPositionError
-          let message = "Failed to get location";
-          if (err.code === 1) {
-            message = "Location access denied";
-          } else if (err.code === 2) {
-            message = "Location information unavailable";
-          } else if (err.code === 3) {
-            message = "Location request timed out";
-          }
+          logGeolocationError("[Timetable] Route reminder location", err);
+          const message = getGeolocationErrorMessage(err);
           reject(new Error(message));
         }, {
           enableHighAccuracy: true,

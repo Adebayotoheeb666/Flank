@@ -4,6 +4,8 @@
  * Stores location history in IndexedDB for offline access
  */
 
+import { logGeolocationError } from './geolocation-utils';
+
 interface StoredLocation {
   id: string;
   latitude: number;
@@ -185,17 +187,7 @@ export function startBackgroundTracking(
         );
       },
       (error: any) => {
-        let message = "[Background GPS] Tracking error";
-        if (error && typeof error === 'object' && 'code' in error) {
-          if (error.code === 1) {
-            message = "[Background GPS] Location access denied";
-          } else if (error.code === 2) {
-            message = "[Background GPS] Location information unavailable";
-          } else if (error.code === 3) {
-            message = "[Background GPS] Location request timed out";
-          }
-        }
-        console.error(message, error);
+        logGeolocationError("[Background GPS] Tracking", error);
       },
       {
         enableHighAccuracy: true,

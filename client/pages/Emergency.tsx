@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { logGeolocationError } from "@/lib/geolocation-utils";
 import { SOSTriggerRequest, SOSType } from "@shared/api";
 import { useToast } from "@/hooks/use-toast";
 
@@ -138,17 +139,7 @@ export default function EmergencyPage() {
           }
         },
         (error: any) => {
-          let message = "Location tracking error";
-          if (error && typeof error === 'object' && 'code' in error) {
-            if (error.code === 1) {
-              message = "Location access denied - check permissions";
-            } else if (error.code === 2) {
-              message = "Location information unavailable";
-            } else if (error.code === 3) {
-              message = "Location request timed out";
-            }
-          }
-          console.error(message, error);
+          logGeolocationError("[Emergency] SOS tracking", error);
         }
       );
 
