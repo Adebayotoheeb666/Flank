@@ -9,10 +9,12 @@ import {
   Volume2, MapPin, Compass, ChevronRight, ChevronLeft,
   TreeDeciduous, Building2, AlertCircle, Phone, X,
   Play, Pause, SkipForward, SkipBack, Home, Loader,
-  Edit2, Trash2
+  Edit2, Trash2, Plus
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import CreateGuidanceModal from "@/components/CreateGuidanceModal";
+import EditGuidanceModal from "@/components/EditGuidanceModal";
 
 interface GuidanceStep {
   id: number;
@@ -39,6 +41,9 @@ export default function FreshersPage() {
   const [guidanceSequence, setGuidanceSequence] = useState<GuidanceStep[]>([]);
   const [loadingGuidance, setLoadingGuidance] = useState(true);
   const [isDeletingStep, setIsDeletingStep] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingStep, setEditingStep] = useState<GuidanceStep | null>(null);
   const synth = useRef<SpeechSynthesis | null>(null);
 
   // Initialize speech synthesis
@@ -101,6 +106,27 @@ export default function FreshersPage() {
     playVoiceGuidance(fullText);
   };
 
+  const refreshGuidanceSequence = async () => {
+    try {
+      const response = await fetch("/api/guidance");
+      if (response.ok) {
+        const data = await response.json();
+        setGuidanceSequence(data);
+        // Adjust current step if it's out of bounds
+        if (currentStep >= data.length && data.length > 0) {
+          setCurrentStep(Math.max(0, data.length - 1));
+        }
+      }
+    } catch (error) {
+      console.error("Error refreshing guidance sequence:", error);
+    }
+  };
+
+  const handleEditStep = (step: GuidanceStep) => {
+    setEditingStep(step);
+    setIsEditModalOpen(true);
+  };
+
   const handleDeleteStep = async (stepId: number) => {
     if (!confirm("Are you sure you want to delete this guidance step?")) return;
 
@@ -121,15 +147,7 @@ export default function FreshersPage() {
       }
 
       // Refresh guidance sequence
-      const freshResponse = await fetch("/api/guidance");
-      if (freshResponse.ok) {
-        const data = await freshResponse.json();
-        setGuidanceSequence(data);
-        // Reset to first step or adjust if current step was deleted
-        if (currentStep >= data.length) {
-          setCurrentStep(Math.max(0, data.length - 1));
-        }
-      }
+      await refreshGuidanceSequence();
     } catch (error) {
       console.error("Error deleting step:", error);
       alert("Failed to delete step. Please try again.");
@@ -146,9 +164,20 @@ export default function FreshersPage() {
       <div className="container py-12 space-y-8 animate-in fade-in duration-500">
         {/* Header */}
         <div className="text-center space-y-4">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-100 text-blue-700 font-bold text-sm uppercase tracking-wider">
-            <Compass className="h-4 w-4" />
-            <span>Freshers Mode</span>
+          <div className="flex items-center justify-center gap-4 flex-wrap">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-100 text-blue-700 font-bold text-sm uppercase tracking-wider">
+              <Compass className="h-4 w-4" />
+              <span>Freshers Mode</span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsCreateModalOpen(true)}
+              className="gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Add Guidance Step
+            </Button>
           </div>
           <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight">Welcome to FUTA</h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
@@ -212,6 +241,8 @@ export default function FreshersPage() {
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 text-muted-foreground hover:text-primary"
+                          onClick={() => handleEditStep(step)}
+                          title="Edit this step"
                         >
                           <Edit2 className="h-4 w-4" />
                         </Button>
@@ -221,6 +252,7 @@ export default function FreshersPage() {
                           className="h-8 w-8 text-muted-foreground hover:text-destructive"
                           onClick={() => handleDeleteStep(step.id)}
                           disabled={isDeletingStep}
+                          title="Delete this step"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -393,6 +425,27 @@ export default function FreshersPage() {
             </div>
           </Card>
         )}
+
+        {/* Create and Edit Modals */}
+        <CreateGuidanceModal
+          open={isCreateModalOpen}
+          onOpenChange={setIsCreateModalOpen}
+          onSuccess={() => {
+            setIsCreateModalOpen(false);
+            refreshGuidanceSequence();
+          }}
+        />
+
+        <EditGuidanceModal
+          open={isEditModalOpen}
+          onOpenChange={setIsEditModalOpen}
+          step={editingStep}
+          onSuccess={() => {
+            setIsEditModalOpen(false);
+            setEditingStep(null);
+            refreshGuidanceSequence();
+          }}
+        />
       </div>
     </Layout>
   );

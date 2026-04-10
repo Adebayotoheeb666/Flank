@@ -54,6 +54,55 @@ export const getGuidance: RequestHandler = async (req, res) => {
 };
 
 /**
+ * POST /api/guidance
+ * Create a new guidance step
+ */
+export const createGuidanceStep: RequestHandler = async (req, res) => {
+  try {
+    const { instruction, landmark, action, distance, tips, creator_id } = req.body;
+
+    if (!instruction || !landmark || !creator_id) {
+      return res.status(400).json({ error: "Missing required fields: instruction, landmark, creator_id" });
+    }
+
+    // Get the next step order
+    const { data: lastStep } = await supabase
+      .from("guidance_steps")
+      .select("step_order")
+      .order("step_order", { ascending: false })
+      .limit(1);
+
+    const nextOrder = (lastStep && lastStep.length > 0) ? (lastStep[0].step_order || 0) + 1 : 1;
+
+    const { data, error } = await supabase
+      .from("guidance_steps")
+      .insert([{
+        instruction,
+        landmark,
+        action: action || "",
+        distance: distance || "",
+        tips: tips || [],
+        creator_id,
+        step_order: nextOrder,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }])
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Supabase Error:", error);
+      return res.status(500).json({ error: "Failed to create guidance step" });
+    }
+
+    res.status(201).json(data);
+  } catch (error) {
+    console.error("Create guidance step error:", error);
+    res.status(500).json({ error: "Failed to create guidance step" });
+  }
+};
+
+/**
  * PATCH /api/guidance/:stepId
  * Update a guidance step (only creator can update)
  */
