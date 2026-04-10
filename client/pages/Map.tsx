@@ -13,7 +13,7 @@ import {
   ArrowRight, AlertTriangle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { logGeolocationError } from "@/lib/geolocation-utils";
+import { logGeolocationError, getCachedPosition, cachePosition } from "@/lib/geolocation-utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Location } from "@shared/api";
@@ -447,11 +447,12 @@ export default function MapPage() {
   };
 
   // Preview the route without starting full navigation
-  const previewRoute = async () => {
+  const previewRoute = async (retryCount = 0) => {
     if (!selectedLocation) return;
     setIsLocating(true);
     setLocationStatus("Calculating route...");
     try {
+      // Try to get position with generous timeout
       const position = await new Promise<GeolocationPosition>((resolve, reject) => {
         if (!navigator.geolocation) {
           reject(new Error("Geolocation is not supported by your browser."));
@@ -460,8 +461,8 @@ export default function MapPage() {
 
         const options = {
           enableHighAccuracy: false,
-          timeout: 15000,
-          maximumAge: 30000
+          timeout: 45000, // 45 seconds for one-time position request
+          maximumAge: 5 * 60 * 1000 // Allow cached positions up to 5 minutes old
         };
 
         navigator.geolocation.getCurrentPosition(resolve, reject, options);
@@ -469,6 +470,9 @@ export default function MapPage() {
 
       const userLat = position.coords.latitude;
       const userLng = position.coords.longitude;
+
+      // Cache the position for future use
+      cachePosition(position.coords);
 
       const response = await fetch("/api/route", {
         method: "POST",
@@ -504,6 +508,52 @@ export default function MapPage() {
     } catch (error: any) {
       let message = "Failed to calculate route.";
 
+      // If timeout and we have a cached position, use it for retry
+      if (error?.code === 3 && retryCount < 1) {
+        const cachedPos = getCachedPosition();
+        if (cachedPos) {
+          console.log("[Map] Timeout on route preview, using cached position");
+          setLocationStatus("Using cached location...");
+
+          const userLat = cachedPos.latitude;
+          const userLng = cachedPos.longitude;
+
+          try {
+            const response = await fetch("/api/route", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                start_lat: userLat,
+                start_lng: userLng,
+                end_location_id: selectedLocation.id,
+                prefer_flat: preferFlat
+              })
+            });
+
+            if (!response.ok) {
+              throw new Error("Failed to calculate route");
+            }
+
+            const data: RouteResponse = await response.json();
+            setUserPosition({ lat: userLat, lng: userLng });
+            updateNavState({
+              route: data,
+              isNavigating: false
+            });
+            drawRoute(data);
+            setLocationStatus("Route ready (from cached location)!");
+            setTimeout(() => {
+              setLocationStatus("");
+            }, 2000);
+            setIsLocating(false);
+            return;
+          } catch (retryError) {
+            console.error("[Map] Retry with cached position failed:", retryError);
+            // Fall through to error handling
+          }
+        }
+      }
+
       if (error && typeof error === 'object' && 'code' in error) {
         logGeolocationError("[Map] Route preview", error);
 
@@ -512,7 +562,7 @@ export default function MapPage() {
         } else if (error.code === 2) {
           message = "Location information unavailable. Check your connection.";
         } else if (error.code === 3) {
-          message = "Location request timed out. Please try again.";
+          message = "Location request timed out. Check your location service and try again.";
         } else {
           message = error.message || "Unable to calculate route.";
         }
@@ -549,8 +599,8 @@ export default function MapPage() {
 
         const options = {
           enableHighAccuracy: false,
-          timeout: 15000, // Increased from 8s for better reliability
-          maximumAge: 30000
+          timeout: 45000, // 45 seconds for one-time position request
+          maximumAge: 5 * 60 * 1000 // Allow cached positions up to 5 minutes old
         };
 
         navigator.geolocation.getCurrentPosition(resolve, reject, options);
@@ -559,6 +609,9 @@ export default function MapPage() {
 
       const userLat = position.coords.latitude;
       const userLng = position.coords.longitude;
+
+      // Cache the position for future use
+      cachePosition(position.coords);
 
       const response = await fetch("/api/route", {
         method: "POST",
@@ -846,9 +899,9 @@ export default function MapPage() {
                 setIsLocating(true);
                 setLocationStatus("Finding your location...");
                 const options = {
-                  enableHighAccuracy: false, // Use WiFi/cellular triangulation for speed
-                  timeout: 8000, // 8 seconds should be plenty for most devices
-                  maximumAge: 30000 // Allow 30 seconds old cached location
+                  enableHighAccuracy: false,
+                  timeout: 45000, // 45 seconds - generous timeout for better reliability
+                  maximumAge: 5 * 60 * 1000 // Allow cached positions up to 5 minutes old
                 };
 
                 navigator.geolocation.getCurrentPosition(

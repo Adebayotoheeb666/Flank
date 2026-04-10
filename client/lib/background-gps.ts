@@ -4,7 +4,7 @@
  * Stores location history in IndexedDB for offline access
  */
 
-import { logGeolocationError } from './geolocation-utils';
+import { logGeolocationError, cachePosition, getCachedPosition } from './geolocation-utils';
 
 interface StoredLocation {
   id: string;
