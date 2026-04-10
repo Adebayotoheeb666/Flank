@@ -446,8 +446,98 @@ export default function MapPage() {
     map.current.fitBounds(bounds, { padding: 50 });
   };
 
+  // Preview the route without starting full navigation
+  const previewRoute = async () => {
+    if (!selectedLocation) return;
+    setIsLocating(true);
+    setLocationStatus("Calculating route...");
+    try {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        if (!navigator.geolocation) {
+          reject(new Error("Geolocation is not supported by your browser."));
+          return;
+        }
+
+        const options = {
+          enableHighAccuracy: false,
+          timeout: 15000,
+          maximumAge: 30000
+        };
+
+        navigator.geolocation.getCurrentPosition(resolve, reject, options);
+      });
+
+      const userLat = position.coords.latitude;
+      const userLng = position.coords.longitude;
+
+      const response = await fetch("/api/route", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          start_lat: userLat,
+          start_lng: userLng,
+          end_location_id: selectedLocation.id,
+          prefer_flat: preferFlat
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to calculate route");
+      }
+
+      const data: RouteResponse = await response.json();
+      setUserPosition({ lat: userLat, lng: userLng });
+
+      // Store route without starting full navigation
+      updateNavState({
+        route: data,
+        isNavigating: false
+      });
+
+      // Draw the route on the map
+      drawRoute(data);
+      setLocationStatus("Route ready!");
+
+      setTimeout(() => {
+        setLocationStatus("");
+      }, 1500);
+    } catch (error: any) {
+      let message = "Failed to calculate route.";
+
+      if (error && typeof error === 'object' && 'code' in error) {
+        logGeolocationError("[Map] Route preview", error);
+
+        if (error.code === 1) {
+          message = "Location access denied. Please enable location permissions.";
+        } else if (error.code === 2) {
+          message = "Location information unavailable. Check your connection.";
+        } else if (error.code === 3) {
+          message = "Location request timed out. Please try again.";
+        } else {
+          message = error.message || "Unable to calculate route.";
+        }
+      } else if (error instanceof Error) {
+        message = error.message;
+      }
+
+      setLocationStatus(`Error: ${message}`);
+    } finally {
+      setIsLocating(false);
+    }
+  };
+
   const startNavigation = async () => {
     if (!selectedLocation) return;
+
+    // If route is already previewed, just start navigation
+    if (route) {
+      updateNavState({ isNavigating: true });
+      startWatchingPosition();
+      setLocationStatus("");
+      return;
+    }
+
+    // Otherwise, calculate and start navigation
     setIsLocating(true);
     setLocationStatus("Connecting to GPS...");
     try {
@@ -672,31 +762,52 @@ export default function MapPage() {
             <ScrollArea className="flex-1">
               <div className="p-2 space-y-1">
                 {locations.map(loc => (
-                  <button
+                  <div
                     key={loc.id}
                     className={cn(
-                      "w-full flex items-start gap-4 p-4 rounded-xl text-left transition-all hover:bg-muted group",
+                      "flex items-start gap-2 p-2 rounded-xl transition-all group",
                       selectedLocation?.id === loc.id && "bg-primary/5 border border-primary/20 ring-1 ring-primary/10"
                     )}
-                    onClick={() => handleLocationClick(loc)}
                   >
-                    <div className={cn(
-                      "p-2 rounded-lg text-primary-foreground",
-                      selectedLocation?.id === loc.id ? "bg-primary" : "bg-muted-foreground/20 group-hover:bg-primary/50"
-                    )}>
-                      {loc.category === 'school' && <GraduationCap className="h-5 w-5" />}
-                      {loc.category === 'admin' && <Building2 className="h-5 w-5" />}
-                      {loc.category === 'food' && <Utensils className="h-5 w-5" />}
-                      {loc.category === 'bank' && <CreditCard className="h-5 w-5" />}
-                      {loc.category === 'health' && <Activity className="h-5 w-5" />}
-                      {loc.category === 'landmark' && <TreeDeciduous className="h-5 w-5" />}
-                      {loc.category === 'study' && <Compass className="h-5 w-5" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-bold truncate">{loc.name}</p>
-                      <p className="text-xs text-muted-foreground truncate">{loc.type} • {loc.description}</p>
-                    </div>
-                  </button>
+                    <button
+                      className={cn(
+                        "flex-1 flex items-start gap-4 p-2 rounded-lg text-left transition-all hover:bg-muted"
+                      )}
+                      onClick={() => handleLocationClick(loc)}
+                    >
+                      <div className={cn(
+                        "p-2 rounded-lg text-primary-foreground shrink-0",
+                        selectedLocation?.id === loc.id ? "bg-primary" : "bg-muted-foreground/20 group-hover:bg-primary/50"
+                      )}>
+                        {loc.category === 'school' && <GraduationCap className="h-5 w-5" />}
+                        {loc.category === 'admin' && <Building2 className="h-5 w-5" />}
+                        {loc.category === 'food' && <Utensils className="h-5 w-5" />}
+                        {loc.category === 'bank' && <CreditCard className="h-5 w-5" />}
+                        {loc.category === 'health' && <Activity className="h-5 w-5" />}
+                        {loc.category === 'landmark' && <TreeDeciduous className="h-5 w-5" />}
+                        {loc.category === 'study' && <Compass className="h-5 w-5" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold truncate text-sm">{loc.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">{loc.type} • {loc.description}</p>
+                      </div>
+                    </button>
+                    {/* Quick Navigate Button */}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity h-10 w-10 p-0 rounded-lg hover:bg-primary/10 hover:text-primary"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleLocationClick(loc);
+                        // Give a small delay so UI updates, then start navigation
+                        setTimeout(() => startNavigation(), 100);
+                      }}
+                      title="Navigate to this location"
+                    >
+                      <ArrowRight className="h-5 w-5" />
+                    </Button>
+                  </div>
                 ))}
               </div>
             </ScrollArea>
@@ -926,7 +1037,7 @@ export default function MapPage() {
                       <div className="flex gap-3">
                         <Button
                           className="flex-1 h-12 rounded-xl font-bold gap-2"
-                          onClick={startNavigation}
+                          onClick={route ? startNavigation : previewRoute}
                           disabled={isLocating}
                         >
                           {isLocating ? (
@@ -934,7 +1045,7 @@ export default function MapPage() {
                           ) : (
                             <Navigation className="h-5 w-5" />
                           )}
-                          {isLocating ? "Calculating..." : "Get Directions"}
+                          {isLocating ? "Calculating..." : route ? "Start Navigation" : "Get Directions"}
                         </Button>
                         {selectedLocation?.creator_id === userId && (
                           <Button
