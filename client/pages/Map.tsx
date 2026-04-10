@@ -459,7 +459,7 @@ export default function MapPage() {
 
         const options = {
           enableHighAccuracy: false,
-          timeout: 8000,
+          timeout: 15000, // Increased from 8s for better reliability
           maximumAge: 30000
         };
 
@@ -536,16 +536,22 @@ export default function MapPage() {
       navigator.geolocation.clearWatch(watchIdRef.current);
     }
 
+    // Use more lenient timeout for continuous watchPosition tracking
+    // TIMEOUT errors are common with strict timeouts, so we increase it for better reliability
     const options = {
       enableHighAccuracy: true,
-      timeout: 10000,
-      maximumAge: 5000
+      timeout: 30000, // 30 seconds (up from 10s) for continuous tracking to reduce timeout errors
+      maximumAge: 5000 // Still prefer fresh location data
     };
+
+    let consecutiveErrors = 0;
+    const MAX_CONSECUTIVE_ERRORS = 5;
 
     watchIdRef.current = navigator.geolocation.watchPosition(
       (position: GeolocationPosition) => {
         const { latitude, longitude } = position.coords;
         setUserPosition({ lat: latitude, lng: longitude });
+        consecutiveErrors = 0; // Reset error counter on successful location
 
         // Update distance remaining
         if (selectedLocation && route) {
@@ -558,7 +564,20 @@ export default function MapPage() {
         }
       },
       (error) => {
+        consecutiveErrors++;
         logGeolocationError("[Map] Navigation tracking", error);
+
+        // Stop watching if we get too many consecutive errors
+        if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+          console.warn(
+            `[Map] Location tracking stopped after ${MAX_CONSECUTIVE_ERRORS} consecutive errors. ` +
+            "Please check your location settings and try again."
+          );
+          if (watchIdRef.current !== null) {
+            navigator.geolocation.clearWatch(watchIdRef.current);
+            watchIdRef.current = null;
+          }
+        }
       },
       options
     );

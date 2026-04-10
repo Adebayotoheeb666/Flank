@@ -112,6 +112,8 @@ export default function EmergencyPage() {
   // Get user location and update to server
   useEffect(() => {
     if (isLocationActive && navigator.geolocation) {
+      let errorCount = 0;
+
       locationWatchId.current = navigator.geolocation.watchPosition(
         async (position) => {
           const newLocation = {
@@ -119,6 +121,7 @@ export default function EmergencyPage() {
             lng: position.coords.longitude,
           };
           setUserLocation(newLocation);
+          errorCount = 0; // Reset error count on successful location
 
           // Update location on server if SOS is active
           if (sosActive && sosId) {
@@ -139,7 +142,18 @@ export default function EmergencyPage() {
           }
         },
         (error: any) => {
+          errorCount++;
           logGeolocationError("[Emergency] SOS tracking", error);
+
+          // Warn if too many errors occur during emergency tracking
+          if (errorCount >= 3) {
+            console.warn("[Emergency] Persistent location tracking issues during SOS");
+          }
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 30000, // 30 seconds - generous timeout for emergency tracking
+          maximumAge: 3000 // Fresh location data for emergency
         }
       );
 

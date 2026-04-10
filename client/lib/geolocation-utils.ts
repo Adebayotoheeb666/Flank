@@ -1,5 +1,15 @@
 /**
  * Utility functions for handling Geolocation API errors
+ *
+ * TIMEOUT BEST PRACTICES:
+ * - getCurrentPosition (one-time): 15-30 seconds (device needs to acquire lock)
+ * - watchPosition (continuous): 30+ seconds (allows device to use cached/low-accuracy data)
+ * - Timeouts < 10s often fail on weak GPS/network conditions
+ *
+ * ERROR CODES:
+ * - 1: PERMISSION_DENIED - User denied location access
+ * - 2: POSITION_UNAVAILABLE - Device/service unavailable
+ * - 3: TIMEOUT - Device couldn't get position within timeout period
  */
 
 export interface GeolocationErrorDetails {
@@ -47,16 +57,24 @@ export function parseGeolocationError(error: any): GeolocationErrorDetails {
 }
 
 /**
- * Log geolocation error with full details
+ * Log geolocation error with full details (without stringifying the raw error object)
  */
 export function logGeolocationError(
   context: string,
   error: any
 ): void {
   const details = parseGeolocationError(error);
+  const errorInfo = {
+    code: error?.code,
+    message: error?.message,
+    PERMISSION_DENIED: error?.code === 1 ? 'true' : 'false',
+    POSITION_UNAVAILABLE: error?.code === 2 ? 'true' : 'false',
+    TIMEOUT: error?.code === 3 ? 'true' : 'false',
+  };
+
   console.error(
     `[${context}] Geolocation Error (Code: ${details.code}) ${details.message}`,
-    error
+    errorInfo
   );
 }
 

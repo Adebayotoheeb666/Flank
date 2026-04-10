@@ -77,7 +77,7 @@ export default function TimetablePage() {
           reject(new Error(message));
         }, {
           enableHighAccuracy: true,
-          timeout: 10000,
+          timeout: 15000, // Increased from 10s for better reliability
           maximumAge: 60000
         });
       });

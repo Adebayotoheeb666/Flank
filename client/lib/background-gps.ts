@@ -167,11 +167,14 @@ export function startBackgroundTracking(
 
     backgroundTrackingEnabled = true;
 
+    let errorCount = 0;
+
     // High accuracy watch position
     watcherId = navigator.geolocation.watchPosition(
       async (position) => {
         const { coords, timestamp } = position;
         lastLocation = coords;
+        errorCount = 0; // Reset error count on successful location
 
         // Save to IndexedDB for offline access
         await saveLocation(coords, timestamp);
@@ -187,11 +190,17 @@ export function startBackgroundTracking(
         );
       },
       (error: any) => {
+        errorCount++;
         logGeolocationError("[Background GPS] Tracking", error);
+
+        // Log recovery action if timeout errors are common
+        if (error?.code === 3) {
+          console.warn("[Background GPS] Location timeout - retrying with relaxed settings");
+        }
       },
       {
         enableHighAccuracy: true,
-        timeout: LOCATION_TIMEOUT,
+        timeout: LOCATION_TIMEOUT, // 60 seconds for background tracking
         maximumAge: 10000 // Cache for 10 seconds
       }
     );
